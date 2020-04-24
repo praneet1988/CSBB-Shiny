@@ -3,7 +3,9 @@ Computational Suite for Bioinformaticians and Biologists (CSBB), is a RShiny app
 
 # Dependencies
 library(shiny)
+
 library(servr)
+
 library(ggplot2)
 library(pheatmap)
 library(M3C)
