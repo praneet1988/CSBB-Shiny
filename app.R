@@ -163,20 +163,21 @@ ui <- fluidPage(
               tabPanel("About", fluidRow(
                 p(strong("Computational Suite for Bioinformaticians and Biologists (CSBB)"), "is a RShiny application developed with an intention to empower researchers from wet and dry lab to perform downstream Bioinformatics analysis. CSBB powered by RShiny is packed with 6 modules", strong("Visualization, Normalization, Basic Stats, Differential Expression, Correlation Profiles and Function/Pathway Enrichment"), ". These modules are designed in order to help researchers design a hypothesis or answer research questions with little or no expertise in Bioinformatics. CSBB is also available as a command line application and has Next generation sequencing data processing capabilities. New modules and functionalities will be added periodically.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("CSBB RShiny is avaibale on", a("GitHub", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), ", if interested in hosting on your own servers.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-                p("Please post issues, suggestions and improvements using", a("GitHub", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-                p("To use CSBB command line application please access", a("GitHub", href = "https://github.com/praneet1988/Computational-Suite-For-Bioinformaticians-and-Biologists", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p("Please post issues, suggestions and improvements using", a("Issues/suggestions", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p("To use CSBB command line application please access", a("CSBB CMD", href = "https://github.com/praneet1988/Computational-Suite-For-Bioinformaticians-and-Biologists", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("If using CSBB RShiny in your research please cite the GitHub page", a("Cite", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("Developed and maintained by Praneet Chaturvedi. To view other tools and contributions please visit", a("GitHub", href = "https://github.com/praneet1988/", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"))),
-              tabPanel("Result Window", DT::dataTableOutput("result"), downloadButton('downloadResult', 'Download Results')), 
-              tabPanel("Visualization Window", downloadButton('downloadPlot', 'Save Plot'), plotOutput("Plot")),
+              tabPanel("Result Window", textOutput('DisplayText'), DT::dataTableOutput("result"), downloadButton('downloadResult', 'Download Results')), 
+              tabPanel("Visualization Window", textOutput('DisplayText1'), downloadButton('downloadPlot', 'Save Plot'), plotOutput("Plot")),
               tabPanel("Getting Started", fluidRow(
-                p("CSBB is easy to use and is packed with some very powerful modules to help you analyze your data. Results generated from the modules are loaded on the Result window whereas the Visualization plots are displyed on Visualization windows. Now let's see what each module helps with and what are the options users can explore.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-                p("Normalization module can help users perform normalization on their data using following methods: upper quantile, median, full, log2 and zScore. Normalized data can also visualized using Principal component analysis (pca), t-stochastic neighbor embedding (tSNE) and heatmap. For tSNE visualization a group file is required. Group file should provide group name for each sample in the data. PCA is linear dimension reduction technique and tSNE is non-linear dimension reduction technique.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-                p("Visualization module lets user visualize their data using pca, tSNE and heatmap", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-                p("Basic Stats module is very helpful for estimating mean, median, standard deviation, median adjusted deviation, sum, min and max expression per gene in the expression matrix.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-                p("Differential Expression is performed on user inputted counts using RUVSeq. Please cite RUVSeq if using Differential Expression module in your research using", a("Cite", href = "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4404308/", target = "_blank"), ". Differentially expressed (DE) genes are reported in result tab and results can be filtered using logFC and FDR filters. Users can visualize their data based on DE genes using pca, tSNE, heatmap, volcano plots and perform functional/pathway enrichemnt on DE genes", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-                p("Correlation Profiles module is developed to help users analyze Correlation among the samples in the data or see how a gene set is correlated based on the expression across samples", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-                p("Functional/Pathway Enrichment module is designed to compute and visualize top enriched functions and pathways based on user provided gene list. ReactomePA R package is used to perform and visualize enrichment. Please cite ReactomePA when using the module in your research", a("Cite", href = "https://pubs.rsc.org/en/content/articlelanding/2016/MB/C5MB00663E#!divAbstract", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px")))
+                p(strong("CSBB"), "is easy to use and is packed with some very powerful modules to help you analyze your data. Results generated from the modules are loaded on the Result window whereas the Visualization plots are displyed on Visualization windows. Now let's see what each module helps with and what are the options users can explore.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Normalization module"), "can help users perform normalization on their data using following methods: upper quantile, median, full, log2 and zScore. Normalized data can also visualized using Principal component analysis (pca), t-stochastic neighbor embedding (tSNE) and heatmap. For tSNE visualization a group file is required. Group file should provide group name for each sample in the data. PCA is linear dimension reduction technique and tSNE is non-linear dimension reduction technique.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Visualization module"), "lets user visualize their data using pca, tSNE and heatmap", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Basic Stats module"), "is very helpful for estimating mean, median, standard deviation, median adjusted deviation, sum, min and max expression per gene in the expression matrix.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Differential Expression module"), "helps user perform differential expression analysis on raw counts of genes across samples using RUVSeq. Please cite RUVSeq if using Differential Expression module in your research using", a("Cite", href = "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4404308/", target = "_blank"), ". Differentially expressed (DE) genes are reported in result tab and results can be filtered using logFC and FDR filters. Users can visualize their data based on DE genes using pca, tSNE, heatmap, volcano plots and perform functional/pathway enrichemnt on DE genes", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Correlation Profiles module"), "is developed to help users analyze Correlation among the samples in the data or see how a gene set is correlated based on the expression across samples", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Functional/Pathway Enrichment module"), "is designed to compute and visualize top enriched functions and pathways based on user provided gene list. ReactomePA R package is used to perform and visualize enrichment. Please cite ReactomePA when using the module in your research", a("Cite", href = "https://pubs.rsc.org/en/content/articlelanding/2016/MB/C5MB00663E#!divAbstract", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p("Please access sample files for each module using", a("Sample Files", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px")))
           )
       )
   )
@@ -588,6 +589,92 @@ server <- function(input, output, session) {
       } 
   )
 
+  output$DisplayText <- renderText({
+  	 if(is.null(DataUse())){
+  	 	"Please wait... CSBB is working on your data"}
+  	 else{
+  	 	"Data processed"}
+  })
+
+  output$DisplayText1 <- renderText({
+  	 if(input$Module == "Normalization") {
+      if(input$PlotType == "pca") {
+        if(is.null(PCAplot())){
+        	"Please wait... CSBB is generating PCA plot"
+        }
+        else{
+        	"PCA plot generated"
+        }
+      }
+      else if(input$PlotType == "tsne") {
+      	if(is.null(TSNEplot())){
+        	"Please wait... CSBB is generating tSNE plot"
+        }
+        else{
+        	"tSNE plot generated"
+        }
+      }
+      else if(input$PlotType == "heatmap") {
+      	if(is.null(HEATMAPplot())){
+        	"Please wait... CSBB is generating Heatmap"
+        }
+        else{
+        	"Heatmap generated"
+        }
+      }
+     }
+     else if(input$Module == "Visualization") {
+      if(input$PlotType == "pca") {
+        if(is.null(PCAplot())){
+        	"Please wait... CSBB is generating PCA plot"
+        }
+        else{
+        	"PCA plot generated"
+        }
+      }
+      else if(input$PlotType == "tsne") {
+        if(is.null(TSNEplot())){
+        	"Please wait... CSBB is generating tSNE plot"
+        }
+        else{
+        	"tSNE plot generated"
+        }
+      }
+      else if(input$PlotType == "heatmap") {
+        if(is.null(HEATMAPplot())){
+        	"Please wait... CSBB is generating Heatmap"
+        }
+        else{
+        	"Heatmap generated"
+        }
+      }
+     }
+     else if(input$Module == "Correlation Profiles") {
+      if(is.null(CorrelationPlot())){
+        	"Please wait... CSBB is generating Correlation Plot"
+      }
+      else{
+        	"Correlation Plot generated"
+      }
+     }
+     else if(input$Module == "Differential Expression") {
+      if(is.null(DifferentialExpressionPlot())){
+        	"Please wait... CSBB is generating requested Plot for Differentially expressed genes"
+      }
+      else{
+        	"Requested Plot generated for Differentially expressed genes"
+      }
+     }
+     else if(input$Module == "Functional and Pathway Enrichment"){
+      if(is.null(FPEnrichmentPlot())){
+        	"Please wait... CSBB is generating Funtion/Pathway Enrichment Plot for inputted genes"
+      }
+      else{
+        	"Funtion/Pathway Enrichment Plot generated for inputted genes"
+      }
+     }
+  })
+ 
   output$downloadPlot <- downloadHandler(
       filename = function() {
         paste0(input$Module, "_", input$PlotType, "_Plot", "-", Sys.Date(), ".png")
