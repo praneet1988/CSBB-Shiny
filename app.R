@@ -166,11 +166,12 @@ ui <- fluidPage(
                 p("Please post issues, suggestions and improvements using", a("Issues/suggestions", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("To use CSBB command line application please access", a("CSBB CMD", href = "https://github.com/praneet1988/Computational-Suite-For-Bioinformaticians-and-Biologists", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("If using CSBB RShiny in your research please cite the GitHub page", a("Cite", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-                p("Developed and maintained by Praneet Chaturvedi. To view other tools and contributions please visit", a("GitHub", href = "https://github.com/praneet1988/", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"))),
+                p("Developed and maintained by Praneet Chaturvedi. To view other tools and contributions please visit", a("GitHub", href = "https://github.com/praneet1988/", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px")), imageOutput('Pipeline')),
               tabPanel("Result Window", textOutput('DisplayText'), DT::dataTableOutput("result"), downloadButton('downloadResult', 'Download Results')), 
               tabPanel("Visualization Window", textOutput('DisplayText1'), downloadButton('downloadPlot', 'Save Plot'), plotOutput("Plot")),
               tabPanel("Getting Started", fluidRow(
                 p(strong("CSBB"), "is easy to use and is packed with some very powerful modules to help you analyze your data. Results generated from the modules are loaded on the Result window whereas the Visualization plots are displyed on Visualization windows. Now let's see what each module helps with and what are the options users can explore.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Tutorial Video"), a("YouTube", href = "https://youtu.be/c0P7TMu_IyY", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Normalization module"), "can help users perform normalization on their data using following methods: upper quantile, median, full, log2 and zScore. Normalized data can also visualized using Principal component analysis (pca), t-stochastic neighbor embedding (tSNE) and heatmap. For tSNE visualization a group file is required. Group file should provide group name for each sample in the data. PCA is linear dimension reduction technique and tSNE is non-linear dimension reduction technique.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Visualization module"), "lets user visualize their data using pca, tSNE and heatmap", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Basic Stats module"), "is very helpful for estimating mean, median, standard deviation, median adjusted deviation, sum, min and max expression per gene in the expression matrix.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
@@ -186,6 +187,13 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
 
+ output$Pipeline <- renderImage({
+  list(src = 'www/CSBB.png',
+         contentType = 'image/png',
+         width = 800,
+         height = 800,
+         alt = "This is alternate text")
+  }, deleteFile = F)
  
  observe({
      if(input$Module == "Differential Expression"){
