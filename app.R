@@ -19,8 +19,10 @@ library(EnhancedVolcano)
 options(shiny.maxRequestSize=100*1024^2)
 ui <- fluidPage(
   
+  tags$head(includeHTML(("GoogleAnalytics.html"))),
   # App title ----
   titlePanel("Computational Suite For Bioinformaticians and Biologists"),
+
   
   # Sidebar layout with input and output definitions ----
   sidebarLayout(
