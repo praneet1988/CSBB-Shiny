@@ -23,7 +23,7 @@ library(EnhancedVolcano)
 https://praneet1988.shinyapps.io/CSBB_Shiny/
 
 # End to End Pipeline Workflow with CSBB
-![Graph]
+![Graph](CSBB.png)
 
 # Video Tutorial
 https://youtu.be/c0P7TMu_IyY
