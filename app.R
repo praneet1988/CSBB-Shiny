@@ -182,7 +182,7 @@ ui <- fluidPage(
         condition = "input.Module == 'ChIP-ATAC Seq Analysis'",
         selectInput("PlotChIP", 
                     label = "Select Analysis for Peaks",
-                    choices = c("Coverage Plot (Visualize coverage of peaks across chromosomes)", "Heatmap showing profile of peaks binding to TSS regions", "Average Profile of peaks binding to TSS regions", "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"),
+                    choices = c("Coverage Plot (Visualize coverage of peaks across chromosomes)", "Average Profile of peaks binding to TSS regions", "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"),
                     selected = "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)")),
 
       conditionalPanel(
@@ -215,6 +215,7 @@ ui <- fluidPage(
                 p(strong("ChIP-ATAC Seq Analysis module"), "is designed to perform downstream analysis with peaks like obtaining coverage plot across chromosomes, quantifying profile of peaks binding to transcription start site (TSS) and performing peak annotation. TSS is defined as +- 3kb regions of flanking sequences of the TSS sites. ChIPseeker package in R is used for performing downsream analysis on peaks. Please cite ChIPseeker when using this module.", a("Cite", href = "https://academic.oup.com/bioinformatics/article/31/14/2382/255379", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("Please access sample files for each module using", a("Sample Files", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"))),
 			        tabPanel("What's New in CSBB Shiny", fluidRow(
+                p(strong("Version 1.2 Log:"), "Dusted off some bugs in ChIP-ATAC Seq Analysis Module, thereby enhancing user experience. Bugs removed include: plots not being saved or not being refereshed. Removed the option to create tag density heatmap. Replaced pie chart with bar plot for visualizing peak region enrichment. CSBB Shiny will be updated periodically. Stay Tuned.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
 			  	      p(strong("Version 1.1 Log:"), "Brushed off some known bugs which entered the system and added new Module ChIP-ATAC Seq Analysis for users. CSBB Shiny will be updated periodically. Some known bugs kicked out include result files and plots file naming, threshold changes, text changes", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Version 1.0 Log:"), "CSBB powered by Shiny has 6 modules and is built with an idea to empower researchers in performing bioinformatics analysis with little or no bioinformatics expertise", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px")))
           )
@@ -424,7 +425,7 @@ FPEnrichmentData <- reactive({
 CHIPData <- reactive({
       if(input$Module == "ChIP-ATAC Seq Analysis"){
         if(input$SpeciesChIP == "human (hg19)"){
-          if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Heatmap showing profile of peaks binding to TSS regions")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
+          if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
           	inFile <- input$PeakFile
             if (is.null(inFile))
             	return(NULL)
@@ -449,7 +450,7 @@ CHIPData <- reactive({
           }
         }
         else if(input$SpeciesChIP == "human (hg38)"){
-          if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Heatmap showing profile of peaks binding to TSS regions")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
+          if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
             inFile <- input$PeakFile
             if (is.null(inFile))
             	return(NULL)
@@ -474,7 +475,7 @@ CHIPData <- reactive({
           }
         }
         else if(input$SpeciesChIP == "mouse (mm10)"){
-          if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Heatmap showing profile of peaks binding to TSS regions")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
+          if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
           	inFile <- input$PeakFile
             if (is.null(inFile))
             	return(NULL)
@@ -499,7 +500,7 @@ CHIPData <- reactive({
           }
         }
         else if(input$SpeciesChIP == "mouse (mm9)"){
-          if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Heatmap showing profile of peaks binding to TSS regions")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
+          if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
             inFile <- input$PeakFile
             if (is.null(inFile))
             	return(NULL)
@@ -713,15 +714,12 @@ CHIPData <- reactive({
       	if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
         	covplot(peak, weightCol="V5")
       	}
-      	else if(input$PlotChIP == "Heatmap showing profile of peaks binding to TSS regions"){
-        	peakHeatmap(peak, TxDb=txdb, upstream=3000, downstream=3000, color="red")
-      	}
       	else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
         	plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
       	}
       	else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
         	if(input$PlotAnnotation == "Peak genomic annotation"){
-          		plotAnnoPie(CHIPData())
+          		plotAnnoBar(CHIPData())
         	}
         	else if(input$PlotAnnotation == "Functional enrichemnt"){
           		emapplot(CHIPData())
@@ -733,15 +731,12 @@ CHIPData <- reactive({
       	if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
         	covplot(peak, weightCol="V5")
       	}
-      	else if(input$PlotChIP == "Heatmap showing profile of peaks binding to TSS regions"){
-        	peakHeatmap(peak, TxDb=txdb, upstream=3000, downstream=3000, color="red")
-      	}
       	else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
         	plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
       	}
       	else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
         	if(input$PlotAnnotation == "Peak genomic annotation"){
-          		plotAnnoPie(CHIPData())
+          		plotAnnoBar(CHIPData())
         	}
         	else if(input$PlotAnnotation == "Functional enrichemnt"){
           		emapplot(CHIPData())
@@ -753,15 +748,12 @@ CHIPData <- reactive({
       	if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
         	covplot(peak, weightCol="V5")
       	}
-      	else if(input$PlotChIP == "Heatmap showing profile of peaks binding to TSS regions"){
-        	peakHeatmap(peak, TxDb=txdb, upstream=3000, downstream=3000, color="red")
-      	}
       	else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
         	plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
       	}
       	else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
         	if(input$PlotAnnotation == "Peak genomic annotation"){
-          		plotAnnoPie(CHIPData())
+          		plotAnnoBar(CHIPData())
         	}
         	else if(input$PlotAnnotation == "Functional enrichemnt"){
           		emapplot(CHIPData())
@@ -773,15 +765,12 @@ CHIPData <- reactive({
       	if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
         	covplot(peak, weightCol="V5")
       	}
-      	else if(input$PlotChIP == "Heatmap showing profile of peaks binding to TSS regions"){
-        	peakHeatmap(peak, TxDb=txdb, upstream=3000, downstream=3000, color="red")
-      	}
       	else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
         	plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
       	}
       	else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
         	if(input$PlotAnnotation == "Peak genomic annotation"){
-          		plotAnnoPie(CHIPData())
+          		plotAnnoBar(CHIPData())
         	}
         	else if(input$PlotAnnotation == "Functional enrichemnt"){
           		emapplot(CHIPData())
@@ -980,12 +969,11 @@ CHIPData <- reactive({
 
   output$downloadPlot <- downloadHandler(
       filename = function() {
-        paste0(input$Module, "_Analysis_Plot", "-", Sys.Date(), ".png")
+        paste0(input$Module, "_Plot", "-", Sys.Date(), ".png")
       },
       content = function(file) {
         if(input$Module == "Normalization") {
           if(input$PlotType == "pca") {
-            ###png(file, width = 600, height = 600, res = 600)
             PCAplot()
             ggsave(file, width = 15, height = 15)
           }
