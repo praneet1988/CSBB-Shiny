@@ -1,3 +1,6 @@
+library(devtools)
+require(usethis)
+library(Seurat)
 options(repos = BiocManager::repositories())
 library(shiny)
 library(servr)
@@ -21,8 +24,11 @@ library(TxDb.Mmusculus.UCSC.mm10.knownGene)
 library(TxDb.Hsapiens.UCSC.hg38.knownGene)
 library(TxDb.Mmusculus.UCSC.mm9.knownGene)
 library(clusterProfiler)
+library(cowplot)
+library(scater)
+library(hdf5r)
 
-options(shiny.maxRequestSize=100*1024^2)
+options(shiny.maxRequestSize=10000*1024^2)
 ui <- fluidPage(
   
   tags$head(includeHTML(("GoogleAnalytics.html"))),
@@ -39,7 +45,7 @@ ui <- fluidPage(
       # Input: Slider for the number of Dataset ----
       selectInput("Module",
                   label = "Module",
-                  choices = c("Normalization", "Basic Stats", "Visualization", "Differential Expression", "Correlation Profiles", "Functional and Pathway Enrichment", "ChIP-ATAC Seq Analysis"),
+                  choices = c("Normalization", "Basic Stats", "Visualization", "Differential Expression", "Correlation Profiles", "Functional and Pathway Enrichment", "ChIP-ATAC Seq Analysis", "Single Cell RNASeq Analysis"),
                   selected = "Visualization"),
 
       conditionalPanel(
@@ -190,13 +196,101 @@ ui <- fluidPage(
         selectInput("PlotAnnotation", 
                     label = "Select Visualization",
                     choices = c("Peak genomic annotation", "Functional enrichemnt"),
-                    selected = "Peak genomic annotation"))
+                    selected = "Peak genomic annotation")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis'",
+        selectInput("scInput", 
+                    label = "Select Data Input Type",
+                    choices = c("Raw Counts Matrix", "H5", "R Object"),
+                    selected = "Raw Counts Matrix")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix'",
+        fileInput("scCounts", 
+                    label = "Upload Counts File (Accepted Format: tab delimited text)",
+                    accept = ".txt")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'H5'",
+        fileInput("scH5", 
+                    label = "Upload H5 output from Cellranger or other toolkits (Accepted Format: H5)",
+                    accept = ".h5")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'R Object'",
+        fileInput("scRobj", 
+                    label = "Upload Seurat R object (Set Object name to seurat.object before upload)",
+                    accept = ".Robj")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5' || input.scInput == 'R Object'",
+        selectInput("Species_singlecell", 
+                    label = "Select Species",
+                    choices = c("human", "mouse"),
+                    selected = "human")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        numericInput("VarFeatures", 
+                    label = "Input Number of Variable Features to use",
+                    value = 2000,
+                    min = 100,
+                    max = 10000),
+        verbatimTextOutput("2000")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        numericInput("scDims", 
+                    label = "Input Number of Dimensions to use",
+                    value = 10,
+                    min = 1,
+                    max = 100),
+        verbatimTextOutput("10")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        numericInput("scRes", 
+                    label = "Input resolution for clustering",
+                    value = 0.5,
+                    min = 0,
+                    max = 10),
+        verbatimTextOutput("0.5")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        selectInput("scReduction", 
+                    label = "Select Dimension Reduction",
+                    choices = c("umap", "tsne"),
+                    selected = "umap")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5' || input.scInput == 'R Object'",
+        selectInput("scVisualization", 
+                    label = "Select single cell Visualization",
+                    choices = c("Gene Expression Plot", "Dimension Reduction Plot", "Top10 Markers Heatmap", "Violin Plot", "DotPlot"),
+                    selected = "Dimension Reduction Plot")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5' || input.scInput == 'R Object' && input.scVisualization == 'Gene Expression Plot' || input.scVisualization == 'Violin Plot' || input.scVisualization == 'DotPlot'",
+        selectInput("scGene", 
+                    label = "Select Genes",
+                    choices = NULL,
+                    selected = NULL,
+                    multiple = TRUE)),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        downloadButton('scRNAObjectDownload', 'Download scRNA-Seq Seurat v3.0 Object'))
+
+
     ),
     mainPanel(
           tabsetPanel(type = "tabs",
               tabPanel("About", fluidRow(
-                p(strong("Computational Suite for Bioinformaticians and Biologists (CSBB)"), "is a RShiny application developed with an intention to empower researchers from wet and dry lab to perform downstream Bioinformatics analysis. CSBB powered by RShiny is packed with 7 modules", strong("Visualization, Normalization, Basic Stats, Differential Expression, Correlation Profiles, Function/Pathway Enrichment and ChIP/ATAC Seq analysis"), ". These modules are designed in order to help researchers design a hypothesis or answer research questions with little or no expertise in Bioinformatics. CSBB is also available as a command line application and has Next generation sequencing data processing capabilities. New modules and functionalities will be added periodically.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Computational Suite for Bioinformaticians and Biologists (CSBB)"), "is a RShiny application developed with an intention to empower researchers from wet and dry lab to perform downstream Bioinformatics analysis. CSBB powered by RShiny is packed with 8 modules", strong("Visualization, Normalization, Basic Stats, Differential Expression, Correlation Profiles, Function/Pathway Enrichment, ChIP/ATAC Seq and Single Cell RNA-Seq analysis."), " These modules are designed in order to help researchers design a hypothesis or answer research questions with little or no expertise in Bioinformatics. CSBB is also available as a command line application and has Next generation sequencing data processing capabilities. New modules and functionalities will be added periodically.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("CSBB RShiny is avaibale on", a("GitHub", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), ", if interested in hosting on your own servers.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Single Cell Transcriptomics Analysis Using CSBB-Shiny Tutorial Video"), a("YouTube", href = "https://youtu.be/s8Q4o1e-f1E", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("Please post issues, suggestions and improvements using", a("Issues/suggestions", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("To use CSBB command line application please access", a("CSBB CMD", href = "https://github.com/praneet1988/Computational-Suite-For-Bioinformaticians-and-Biologists", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("If using CSBB RShiny in your research please cite the GitHub page", a("Cite", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
@@ -206,6 +300,7 @@ ui <- fluidPage(
               tabPanel("Getting Started", fluidRow(
                 p(strong("CSBB"), "is easy to use and is packed with some very powerful modules to help you analyze your data. Results generated from the modules are loaded on the Result window whereas the Visualization plots are displyed on Visualization windows. Now let's see what each module helps with and what are the options users can explore.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Tutorial Video"), a("YouTube", href = "https://youtu.be/c0P7TMu_IyY", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Single Cell Transcriptomics Analysis Using CSBB-Shiny Tutorial Video"), a("YouTube", href = "https://youtu.be/s8Q4o1e-f1E", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Normalization module"), "can help users perform normalization on their data using following methods: upper quantile, median, full, log2 and zScore. Normalized data can also visualized using Principal component analysis (pca), t-stochastic neighbor embedding (tSNE) and heatmap. For tSNE visualization a group file is required. Group file should provide group name for each sample in the data. PCA is linear dimension reduction technique and tSNE is non-linear dimension reduction technique.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Visualization module"), "lets user visualize their data using pca, tSNE and heatmap", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Basic Stats module"), "is very helpful for estimating mean, median, standard deviation, median adjusted deviation, sum, min and max expression per gene in the expression matrix.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
@@ -213,10 +308,12 @@ ui <- fluidPage(
                 p(strong("Correlation Profiles module"), "is developed to help users analyze Correlation among the samples in the data or see how a gene set is correlated based on the expression across samples", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Functional/Pathway Enrichment module"), "is designed to compute and visualize top enriched functions and pathways based on user provided gene list. ReactomePA R package is used to perform and visualize enrichment. Please cite ReactomePA when using the module in your research", a("Cite", href = "https://pubs.rsc.org/en/content/articlelanding/2016/MB/C5MB00663E#!divAbstract", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("ChIP-ATAC Seq Analysis module"), "is designed to perform downstream analysis with peaks like obtaining coverage plot across chromosomes, quantifying profile of peaks binding to transcription start site (TSS) and performing peak annotation. TSS is defined as +- 3kb regions of flanking sequences of the TSS sites. ChIPseeker package in R is used for performing downsream analysis on peaks. Please cite ChIPseeker when using this module.", a("Cite", href = "https://academic.oup.com/bioinformatics/article/31/14/2382/255379", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Single Cell RNASeq Analysis module"), "is designed to perform single cell RNA-Seq analysis. CSBB-Shiny uses Seurat", a("Cite", href = "https://www.nature.com/articles/nbt.4096", target = "_blank"), "which has been one of most cited and widely used analysis toolkit for analyzing single cell RNA-Seq data. The purpose of providing a module for analyzing scRNA data is to enable users with feasible and powerful front-end to seurat. Please check Seurat Vignettes to undertand the steps behind analyzing the analysis framework. In CSBB-Shiny a default filtering on number of RNA features and percentage mitochondrial expression is used. The filter is set to 95th quantile for filtering cells. Please check out the video tutorial to undertand the specifics and parameters. Users can input raw counts matrix, H5 output from cellranger or a processed Seurat v3.0 object. Please cite Seurat when using this module for your research or grants. Please see that CSBB allows users to download R Objects after processing and the object name is set seurat.object.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("Please access sample files for each module using", a("Sample Files", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"))),
-			        tabPanel("What's New in CSBB Shiny", fluidRow(
+              tabPanel("What's New in CSBB Shiny", fluidRow(
+                p(strong("Version 1.3 Log:"), "Presenting Single cell RNA-Seq analysis module for analyzing scRNA-Seq datasets. Users can input raw counts, H5 output from cellranger or a processed R object. CSBB-Shiny uses Seurat (a powerful scRNA-Seq analysis toolkit) to help users analyze scRNA-Seq datasets. CSBB Shiny will be updated periodically. Stay Tuned.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Version 1.2 Log:"), "Dusted off some bugs in ChIP-ATAC Seq Analysis Module, thereby enhancing user experience. Bugs removed include: plots not being saved or not being refereshed. Removed the option to create tag density heatmap. Replaced pie chart with bar plot for visualizing peak region enrichment. CSBB Shiny will be updated periodically. Stay Tuned.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
-			  	      p(strong("Version 1.1 Log:"), "Brushed off some known bugs which entered the system and added new Module ChIP-ATAC Seq Analysis for users. CSBB Shiny will be updated periodically. Some known bugs kicked out include result files and plots file naming, threshold changes, text changes", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
+                p(strong("Version 1.1 Log:"), "Brushed off some known bugs which entered the system and added new Module ChIP-ATAC Seq Analysis for users. CSBB Shiny will be updated periodically. Some known bugs kicked out include result files and plots file naming, threshold changes, text changes", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Version 1.0 Log:"), "CSBB powered by Shiny has 6 modules and is built with an idea to empower researchers in performing bioinformatics analysis with little or no bioinformatics expertise", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px")))
           )
       )
@@ -229,8 +326,8 @@ server <- function(input, output, session) {
  output$Pipeline <- renderImage({
   list(src = 'www/CSBB.png',
          contentType = 'image/png',
-         width = 800,
-         height = 800,
+         width = 1200,
+         height = 1200,
          alt = "This is alternate text")
   }, deleteFile = F)
  
@@ -273,11 +370,75 @@ server <- function(input, output, session) {
     }
  })
 
+ scData <- reactive({
+    if(input$Module == "Single Cell RNASeq Analysis"){
+      if(input$scInput == "Raw Counts Matrix"){
+        inFile <- input$scCounts
+        if (is.null(inFile))
+          return(NULL)
+        data <- c()
+        data <- readSparseCounts(inFile$datapath, sep = "\t", row.names = TRUE, col.names = TRUE)
+        return(data)
+      }
+      else if(input$scInput == "H5"){
+        inFile <- input$scH5
+        if (is.null(inFile))
+          return(NULL)
+        data <- c()
+        data <- Read10X_h5(inFile$datapath, use.names = TRUE, unique.features = TRUE)
+        return(data)
+      }
+    }
+ })
+
+ observe({
+     if(input$Module == "Single Cell RNASeq Analysis"){
+      if(input$scInput == "Raw Counts Matrix"){
+        inFile <- input$scCounts
+        if (is.null(inFile))
+          return(NULL)
+        data <- c()
+        data <- scData()
+        genes <- rownames(data)
+        genes <- data.frame(genes)
+        genes <- genes$genes
+        updateSelectInput(session, "scGene", 
+                         label = "Select Genes",
+                         choices = genes)
+      }
+      else if(input$scInput == "H5"){
+        inFile <- input$scH5
+        if (is.null(inFile))
+          return(NULL)
+        data <- c()
+        data <- scData()
+        genes <- rownames(data)
+        genes <- data.frame(genes)
+        genes <- genes$genes
+        updateSelectInput(session, "scGene", 
+                         label = "Select Genes",
+                         choices = genes)
+      }
+      else if(input$scInput == "R Object"){
+        inFile <- input$scRobj
+        if (is.null(inFile))
+          return(NULL)
+        load(inFile$datapath)
+        genes <- rownames(seurat.object)
+        genes <- data.frame(genes)
+        genes <- genes$genes
+        updateSelectInput(session, "scGene", 
+                         label = "Select Genes",
+                         choices = genes)
+      }
+    }
+ })
+
  NormalizationData <- reactive({
     if(input$Module == "Normalization"){
       inFile <- input$File
       if (is.null(inFile))
-      	return(NULL)
+        return(NULL)
       if(input$Norm == "upper quantile"){
         source("app_bin/UQ_Norm.r", local = TRUE)
         return(UData)
@@ -319,7 +480,7 @@ VisualizationData <- reactive({
     if(input$Module == "Visualization"){
       inFile <- input$File
       if (is.null(inFile))
-      	return(NULL)
+        return(NULL)
       data <- read.table(inFile$datapath, sep="\t", header=T, row.names=1, check.names=F)
       return(data)
     }
@@ -329,7 +490,7 @@ DEData <- reactive({
     if(input$Module == "Differential Expression"){
       inFile <- input$Counts
       if (is.null(inFile))
-      	return(NULL)
+        return(NULL)
       data <- as.matrix(read.table(inFile$datapath, sep="\t", header=T, row.names=1, check.names=TRUE))
       data <- data.frame(data)
       samplelist <- c(input$Controls, input$Treatments)
@@ -341,7 +502,7 @@ DEData <- reactive({
         source("app_bin/RUVseq_NoReps.r", local = TRUE, echo=FALSE)
         DEresult_filter <-  DEresult %>% rownames_to_column('gene') %>% filter(logFC >= input$DEFilterLog | logFC <= -1*(input$DEFilterLog), FDR <= input$DEFilterFDR) %>% column_to_rownames('gene')
         if(is.null(DEresult_filter))
-        	return(NULL)
+          return(NULL)
         return(DEresult_filter)
       }
       else if((lengthcontrol > 1)&(lengthtreatment >= 1)){
@@ -349,7 +510,7 @@ DEData <- reactive({
         source("app_bin/RUVseq_replicates.r", local = TRUE, echo=FALSE)
         DEresult_filter <-  DEresult %>% rownames_to_column('gene') %>% filter(logFC >= input$DEFilterLog | logFC <= -1*(input$DEFilterLog), FDR <= input$DEFilterFDR) %>% column_to_rownames('gene')
         if(is.null(DEresult_filter))
-        	return(NULL)
+          return(NULL)
         return(DEresult_filter)
       }
       else if((lengthcontrol >= 1)&(lengthtreatment > 1)){
@@ -357,11 +518,11 @@ DEData <- reactive({
         source("app_bin/RUVseq_replicates.r", local = TRUE, echo=FALSE)
         DEresult_filter <-  DEresult %>% rownames_to_column('gene') %>% filter(logFC >= input$DEFilterLog | logFC <= -1*(input$DEFilterLog), FDR <= input$DEFilterFDR) %>% column_to_rownames('gene')
         if(is.null(DEresult_filter))
-        	return(NULL)
+          return(NULL)
         return(DEresult_filter)
       }
       else if((lengthcontrol == 0)&(lengthtreatment == 0)){
-      	return(NULL)
+        return(NULL)
       }
     }
 })
@@ -371,7 +532,7 @@ CorrelationData <- reactive({
         if(input$Correlation == "Samples"){
         inFile <- input$File
         if (is.null(inFile))
-        	return(NULL)
+          return(NULL)
         data <- as.matrix(read.table(inFile$datapath, sep="\t", header=T, row.names=1, check.names=F))
         cormat <- cor(data, method=input$CorrelationMethod, use = "na.or.complete")
         return(cormat)
@@ -379,11 +540,11 @@ CorrelationData <- reactive({
       else if(input$Correlation == "Genes"){
         inFile <- input$File
         if (is.null(inFile))
-        	return(NULL)
+          return(NULL)
         data <- as.matrix(read.table(inFile$datapath, sep="\t", header=T, row.names=1, check.names=F))
         Genes_List <- input$GeneList
         if (is.null(Genes_List))
-        	return(NULL)
+          return(NULL)
         GenesUpload <- as.matrix(read.table(Genes_List$datapath, sep="\n", header=F))
         GenesUpload <- data.frame(GenesUpload)
         GenesUpload <- unique(GenesUpload$V1)
@@ -400,7 +561,7 @@ FPEnrichmentData <- reactive({
         if(input$Species == "human"){
           inFile <- input$GeneList_FP
           if (is.null(inFile))
-          	return(NULL)
+            return(NULL)
           GenesUpload <- as.matrix(read.table(inFile$datapath, sep="\n", header=F))
           GenesUpload <- data.frame(GenesUpload)
           GenesUpload <- unique(GenesUpload$V1)
@@ -411,7 +572,7 @@ FPEnrichmentData <- reactive({
         else if(input$Species == "mouse"){
           inFile <- input$GeneList_FP
           if (is.null(inFile))
-          	return(NULL)
+            return(NULL)
           GenesUpload <- as.matrix(read.table(inFile$datapath, sep="\n", header=F))
           GenesUpload <- data.frame(GenesUpload)
           GenesUpload <- unique(GenesUpload$V1)
@@ -426,26 +587,26 @@ CHIPData <- reactive({
       if(input$Module == "ChIP-ATAC Seq Analysis"){
         if(input$SpeciesChIP == "human (hg19)"){
           if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
-          	inFile <- input$PeakFile
+            inFile <- input$PeakFile
             if (is.null(inFile))
-            	return(NULL)
+              return(NULL)
             peak <- readPeakFile(inFile$datapath)
             return(peak)
           }
           else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
             inFile <- input$PeakFile
             if (is.null(inFile))
-            	return(NULL)
+              return(NULL)
             peak <- readPeakFile(inFile$datapath)
             txdb = TxDb.Hsapiens.UCSC.hg19.knownGene
             if(input$PlotAnnotation == "Peak genomic annotation"){
-            	peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
-            	return(peakAnno)
+              peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
+              return(peakAnno)
             }
             else if(input$PlotAnnotation == "Functional enrichemnt"){
-            	peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
-            	pathway <- enrichPathway(as.data.frame(peakAnno)$geneId, pvalueCutoff = 0.05, readable=T, organism = "human")
-              	return(pathway)
+              peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
+              pathway <- enrichPathway(as.data.frame(peakAnno)$geneId, pvalueCutoff = 0.05, readable=T, organism = "human")
+                return(pathway)
             }
           }
         }
@@ -453,49 +614,49 @@ CHIPData <- reactive({
           if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
             inFile <- input$PeakFile
             if (is.null(inFile))
-            	return(NULL)
+              return(NULL)
             peak <- readPeakFile(inFile$datapath)
             return(peak)
           }
           else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
             inFile <- input$PeakFile
             if (is.null(inFile))
-            	return(NULL)
+              return(NULL)
             peak <- readPeakFile(inFile$datapath)
             txdb = TxDb.Hsapiens.UCSC.hg38.knownGene
             if(input$PlotAnnotation == "Peak genomic annotation"){
-            	peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
-            	return(peakAnno)
+              peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
+              return(peakAnno)
             }
             else if(input$PlotAnnotation == "Functional enrichemnt"){
-            	peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
-            	pathway <- enrichPathway(as.data.frame(peakAnno)$geneId, pvalueCutoff = 0.05, readable=T, organism = "human")
-              	return(pathway)
+              peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
+              pathway <- enrichPathway(as.data.frame(peakAnno)$geneId, pvalueCutoff = 0.05, readable=T, organism = "human")
+                return(pathway)
             }
           }
         }
         else if(input$SpeciesChIP == "mouse (mm10)"){
           if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
-          	inFile <- input$PeakFile
+            inFile <- input$PeakFile
             if (is.null(inFile))
-            	return(NULL)
+              return(NULL)
             peak <- readPeakFile(inFile$datapath)
             return(peak)
           }
           else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
             inFile <- input$PeakFile
             if (is.null(inFile))
-            	return(NULL)
+              return(NULL)
             peak <- readPeakFile(inFile$datapath)
             txdb = TxDb.Mmusculus.UCSC.mm10.knownGene
             if(input$PlotAnnotation == "Peak genomic annotation"){
-            	peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Mm.eg.db")
-            	return(peakAnno)
+              peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Mm.eg.db")
+              return(peakAnno)
             }
             else if(input$PlotAnnotation == "Functional enrichemnt"){
-            	peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Mm.eg.db")
-            	pathway <- enrichPathway(as.data.frame(peakAnno)$geneId, pvalueCutoff = 0.05, readable=T, organism = "mouse")
-            	return(pathway)
+              peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Mm.eg.db")
+              pathway <- enrichPathway(as.data.frame(peakAnno)$geneId, pvalueCutoff = 0.05, readable=T, organism = "mouse")
+              return(pathway)
             }
           }
         }
@@ -503,40 +664,134 @@ CHIPData <- reactive({
           if((input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)")|(input$PlotChIP == "Average Profile of peaks binding to TSS regions")){
             inFile <- input$PeakFile
             if (is.null(inFile))
-            	return(NULL)
+              return(NULL)
             peak <- readPeakFile(inFile$datapath)
             return(peak)
           }
           else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
             inFile <- input$PeakFile
             if (is.null(inFile))
-            	return(NULL)
+              return(NULL)
             peak <- readPeakFile(inFile$datapath)
             txdb = TxDb.Mmusculus.UCSC.mm9.knownGene
             if(input$PlotAnnotation == "Peak genomic annotation"){
-            	peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Mm.eg.db")
-            	return(peakAnno)
+              peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Mm.eg.db")
+              return(peakAnno)
             }
             else if(input$PlotAnnotation == "Functional enrichemnt"){
-            	peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Mm.eg.db")
-            	pathway <- enrichPathway(as.data.frame(peakAnno)$geneId, pvalueCutoff = 0.05, readable=T, organism = "mouse")
-              	return(pathway)
+              peakAnno <- annotatePeak(peak, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Mm.eg.db")
+              pathway <- enrichPathway(as.data.frame(peakAnno)$geneId, pvalueCutoff = 0.05, readable=T, organism = "mouse")
+                return(pathway)
             }
           }
         }
       }
 })
 
+SingleCell <- reactive({
+  if(input$Module == "Single Cell RNASeq Analysis"){
+    if(input$scInput == "Raw Counts Matrix"){
+      inFile <- input$scCounts
+      if(is.null(inFile))
+        return(NULL)
+      data <- c()
+      data <- scData()
+      seurat.object <- CreateSeuratObject(counts = data, project = "scAnalysis", min.cells = 0, min.features = 0)
+      if(input$Species_singlecell == "human"){
+        seurat.object[["percent.mt"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-")
+      }
+      else if(input$Species_singlecell == "mouse"){
+        seurat.object[["percent.mt"]] <- PercentageFeatureSet(seurat.object, pattern = "^mt-")
+      }
+      nFeature_RNA_cutoff <- quantile(seurat.object@meta.data$nFeature_RNA, .95)
+      nFeature_RNA_cutoff <- data.frame(nFeature_RNA_cutoff)
+      percentMT_cutoff <- quantile(seurat.object@meta.data$percent.mt, .95)
+      percentMT_cutoff <- data.frame(percentMT_cutoff)
+      if(percentMT_cutoff$percentMT_cutoff == 0){
+        seurat.object <- subset(seurat.object, subset = nFeature_RNA > 0 & nFeature_RNA < nFeature_RNA_cutoff$nFeature_RNA_cutoff & percent.mt < 1)
+      }
+      else if(percentMT_cutoff$percentMT_cutoff > 0){
+        seurat.object <- subset(seurat.object, subset = nFeature_RNA > 0 & nFeature_RNA < nFeature_RNA_cutoff$nFeature_RNA_cutoff & percent.mt < percentMT_cutoff$percentMT_cutoff)
+      }
+      seurat.object <- NormalizeData(seurat.object)
+      seurat.object <- FindVariableFeatures(seurat.object, selection.method = "vst", nfeatures = input$VarFeatures)
+      seurat.object <- ScaleData(seurat.object)
+      seurat.object <- RunPCA(seurat.object)
+      seurat.object <- FindNeighbors(seurat.object, dims = 1:input$scDims)
+      seurat.object <- FindClusters(seurat.object, resolution = input$scRes)
+      if(input$scReduction == "umap"){
+        seurat.object <- RunUMAP(seurat.object, dims = 1:input$scDims)
+      }
+      else if(input$scReduction == "tsne"){
+        seurat.object <- RunTSNE(seurat.object, dims = 1:input$scDims)
+      }
+      return(seurat.object)
+    }
+    else if(input$scInput == "H5"){
+      inFile <- input$scH5
+      if(is.null(inFile))
+        return(NULL)
+      data <- c()
+      data <- scData()
+      seurat.object <- CreateSeuratObject(counts = data, project = "scAnalysis", min.cells = 0, min.features = 0)
+      if(input$Species_singlecell == "human"){
+        seurat.object[["percent.mt"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-")
+      }
+      else if(input$Species_singlecell == "mouse"){
+        seurat.object[["percent.mt"]] <- PercentageFeatureSet(seurat.object, pattern = "^mt-")
+      }
+      nFeature_RNA_cutoff <- quantile(seurat.object@meta.data$nFeature_RNA, .95)
+      nFeature_RNA_cutoff <- data.frame(nFeature_RNA_cutoff)
+      percentMT_cutoff <- quantile(seurat.object@meta.data$percent.mt, .95)
+      percentMT_cutoff <- data.frame(percentMT_cutoff)
+      if(percentMT_cutoff$percentMT_cutoff == 0){
+        seurat.object <- subset(seurat.object, subset = nFeature_RNA > 0 & nFeature_RNA < nFeature_RNA_cutoff$nFeature_RNA_cutoff & percent.mt < 1)
+      }
+      else if(percentMT_cutoff$percentMT_cutoff > 0){
+        seurat.object <- subset(seurat.object, subset = nFeature_RNA > 0 & nFeature_RNA < nFeature_RNA_cutoff$nFeature_RNA_cutoff & percent.mt < percentMT_cutoff$percentMT_cutoff)
+      }
+      seurat.object <- NormalizeData(seurat.object)
+      seurat.object <- FindVariableFeatures(seurat.object, selection.method = "vst", nfeatures = input$VarFeatures)
+      seurat.object <- ScaleData(seurat.object)
+      seurat.object <- RunPCA(seurat.object)
+      seurat.object <- FindNeighbors(seurat.object, dims = 1:input$scDims)
+      seurat.object <- FindClusters(seurat.object, resolution = input$scRes)
+      if(input$scReduction == "umap"){
+        seurat.object <- RunUMAP(seurat.object, dims = 1:input$scDims)
+      }
+      else if(input$scReduction == "tsne"){
+        seurat.object <- RunTSNE(seurat.object, dims = 1:input$scDims)
+      }
+      return(seurat.object)
+    }
+    else if(input$scInput == "R Object"){
+      inFile <- input$scRobj
+      if(is.null(inFile))
+        return(NULL)
+      load(inFile$datapath)
+      Idents(seurat.object) <- seurat.object@meta.data$seurat_clusters
+      return(seurat.object)
+    }
+  }
+})
+
+ SingleCellMarkers <- reactive({
+  seurat.object <- SingleCell()
+  markers_clusters <- FindAllMarkers(seurat.object, only.pos = TRUE)
+  return(markers_clusters)
+ })
+
+
  PCAplot <- reactive({
      inFile <- input$File
      if (is.null(inFile))
-     	return(NULL)
+      return(NULL)
      data <- c()
      if(input$Module == "Normalization"){
-     	data <- as.matrix(NormalizationData())
+      data <- as.matrix(NormalizationData())
      }
      else if(input$Module == "Visualization"){
-     	data <- as.matrix(VisualizationData())
+      data <- as.matrix(VisualizationData())
      }
      data <- data[apply(data[,-1], 1, function(x) !all(x==0)),]
      data.t <- t(data)
@@ -557,16 +812,16 @@ CHIPData <- reactive({
  TSNEplot <- reactive({
      inFile <- input$File
      if (is.null(inFile))
-     	return(NULL)
+      return(NULL)
      inGroupFile <- input$GroupFile
      if (is.null(inGroupFile))
-     	return(NULL)
+      return(NULL)
      data <- c()
      if(input$Module == "Normalization"){
-     	data <- as.matrix(NormalizationData())
+      data <- as.matrix(NormalizationData())
      }
      else if(input$Module == "Visualization"){
-     	data <- as.matrix(VisualizationData())
+      data <- as.matrix(VisualizationData())
      }
      Group <- as.matrix(read.table(inGroupFile$datapath, header=T, sep="\t", row.names=1, check.names=F))
      Group <- data.frame(Group)
@@ -577,81 +832,81 @@ CHIPData <- reactive({
  HEATMAPplot <- reactive({
      inFile <- input$File
      if (is.null(inFile))
-     	return(NULL)
+      return(NULL)
      data <- c()
      if(input$Module == "Normalization"){
-     	data <- as.matrix(NormalizationData())
+      data <- as.matrix(NormalizationData())
      }
      else if(input$Module == "Visualization"){
-     	data <- as.matrix(VisualizationData())
+      data <- as.matrix(VisualizationData())
      }
      data <- data[apply(data, MARGIN = 1, FUN = function(x) sd(x) != 0),]
      if(input$Cluster == "Rows"){
-     	pheatmap(data, scale=input$Scaling, cluster_rows=TRUE, cluster_cols=FALSE, main="Heatmap", border_color = "NA")
+      pheatmap(data, scale=input$Scaling, cluster_rows=TRUE, cluster_cols=FALSE, main="Heatmap", border_color = "NA")
      }
      else if(input$Cluster == "Columns"){
-      	pheatmap(data, scale=input$Scaling, cluster_rows=FALSE, cluster_cols=TRUE, main="Heatmap", border_color = "NA")
+        pheatmap(data, scale=input$Scaling, cluster_rows=FALSE, cluster_cols=TRUE, main="Heatmap", border_color = "NA")
      }
      else if(input$Cluster == "Rows and Columns"){
-      	pheatmap(data, scale=input$Scaling, cluster_rows=TRUE, cluster_cols=TRUE, main="Heatmap", border_color = "NA")
+        pheatmap(data, scale=input$Scaling, cluster_rows=TRUE, cluster_cols=TRUE, main="Heatmap", border_color = "NA")
      }
      else if(input$Cluster == "None"){
-      	pheatmap(data, scale=input$Scaling, cluster_rows=FALSE, cluster_cols=FALSE, main="Heatmap", border_color = "NA")
+        pheatmap(data, scale=input$Scaling, cluster_rows=FALSE, cluster_cols=FALSE, main="Heatmap", border_color = "NA")
      }
  })
 
  CorrelationPlot <- reactive({
      if(input$Correlation == "Samples"){
-     	inFile <- input$File
-      	if (is.null(inFile))
-      		return(NULL)
-      	titleuse <- paste0("Displaying Correlation Plot of ", input$Correlation)
-      	data <- CorrelationData()
-      	ggcorrplot(data, hc.order = TRUE, outline.color = "white", ggtheme = ggplot2::theme_gray, colors = c("#6D9EC1", "white", "#E46726"), legend.title = "Correlation") + labs(title = titleuse)
+      inFile <- input$File
+        if (is.null(inFile))
+          return(NULL)
+        titleuse <- paste0("Displaying Correlation Plot of ", input$Correlation)
+        data <- CorrelationData()
+        ggcorrplot(data, hc.order = TRUE, outline.color = "white", ggtheme = ggplot2::theme_gray, colors = c("#6D9EC1", "white", "#E46726"), legend.title = "Correlation") + labs(title = titleuse)
      }
      else if(input$Correlation == "Genes"){
-      	inFile <- input$File
-      	if (is.null(inFile))
-        	return(NULL)
-      	Genes_List <- input$GeneList
-      	if (is.null(Genes_List))
-        	return(NULL)
-      	titleuse <- paste0("Displaying Correlation Plot of ", input$Correlation)
-      	data <- 	CorrelationData()
-      	ggcorrplot(data, hc.order = TRUE, outline.color = "white", ggtheme = ggplot2::theme_gray, colors = c("#6D9EC1", "white", "#E46726"), legend.title = "Correlation") + labs(title = titleuse)
+        inFile <- input$File
+        if (is.null(inFile))
+          return(NULL)
+        Genes_List <- input$GeneList
+        if (is.null(Genes_List))
+          return(NULL)
+        titleuse <- paste0("Displaying Correlation Plot of ", input$Correlation)
+        data <-   CorrelationData()
+        ggcorrplot(data, hc.order = TRUE, outline.color = "white", ggtheme = ggplot2::theme_gray, colors = c("#6D9EC1", "white", "#E46726"), legend.title = "Correlation") + labs(title = titleuse)
      }
  })
 
  DifferentialExpressionPlot <- reactive({
      inFile <- input$Counts
      if (is.null(inFile))
-     	return(NULL)
+      return(NULL)
      DEresult <- DEData()
      DEgenes <- rownames(DEresult)
      data <- as.matrix(read.table(inFile$datapath, sep="\t", header=T, row.names=1, check.names=F))
      datause <- subset(data, rownames(data) %in% DEgenes)
      datause <- log2(datause+1)
      if(input$PlotType == "pca"){
-     	data <- as.matrix(datause)
-      	data <- data[apply(data[,-1], 1, function(x) !all(x==0)),]
-      	data.t <- t(data)
-      	pca <- prcomp(data.t, center=T, scale. = T)
-      	pc1 <- round(pca$sdev[1]^2/sum(pca$sdev^2)*100,2)
-     	pc2 <- round(pca$sdev[2]^2/sum(pca$sdev^2)*100,2)
-     	PC1_use <- paste0("PC1", "(", pc1, "%)")
-      	PC2_use <- paste0("PC2", "(", pc2, "%)")
-      	Samples_temp <- rownames(data.t)
-      	Samples <- factor(Samples_temp)
-      	scores <- data.frame(Samples_temp, pca$x[,1:3])
-      	MIN_X <- min(scores$PC1)
-      	Max_X <- max(scores$PC1)
-      	header <- "Principal Component Analysis"
-      	qplot(x=PC1, y=PC2, data=scores, colour=Samples, xlim=c(MIN_X-75,Max_X+75)) + xlab(PC1_use) + ylab(PC2_use) + geom_point(shape=1) + geom_text(aes(label=Samples_temp), hjust=0, vjust=0) + scale_size_area() + theme(axis.text = element_text(size = 14),axis.line.x = element_line(colour = "black"),axis.line.y = element_line(colour = "black"),legend.key = element_rect(fill = "white"),legend.background = element_rect(fill = "white"),panel.grid.major = element_line(),panel.grid.minor = element_blank(),panel.background = element_rect(fill = "white")) + ggtitle(header) + guides(colour = guide_legend(ncol = 1, override.aes = list(size = 5)))
+      data <- as.matrix(datause)
+        data <- data[apply(data[,-1], 1, function(x) !all(x==0)),]
+        data.t <- t(data)
+        pca <- prcomp(data.t, center=T, scale. = T)
+        pc1 <- round(pca$sdev[1]^2/sum(pca$sdev^2)*100,2)
+      pc2 <- round(pca$sdev[2]^2/sum(pca$sdev^2)*100,2)
+      PC1_use <- paste0("PC1", "(", pc1, "%)")
+        PC2_use <- paste0("PC2", "(", pc2, "%)")
+        Samples_temp <- rownames(data.t)
+        Samples <- factor(Samples_temp)
+        scores <- data.frame(Samples_temp, pca$x[,1:3])
+        MIN_X <- min(scores$PC1)
+        Max_X <- max(scores$PC1)
+        header <- "Principal Component Analysis"
+        qplot(x=PC1, y=PC2, data=scores, colour=Samples, xlim=c(MIN_X-75,Max_X+75)) + xlab(PC1_use) + ylab(PC2_use) + geom_point(shape=1) + geom_text(aes(label=Samples_temp), hjust=0, vjust=0) + scale_size_area() + theme(axis.text = element_text(size = 14),axis.line.x = element_line(colour = "black"),axis.line.y = element_line(colour = "black"),legend.key = element_rect(fill = "white"),legend.background = element_rect(fill = "white"),panel.grid.major = element_line(),panel.grid.minor = element_blank(),panel.background = element_rect(fill = "white")) + ggtitle(header) + guides(colour = guide_legend(ncol = 1, override.aes = list(size = 5)))
     }
     else if(input$PlotType == "tsne"){
       inGroupFile <- input$GroupFile
       if (is.null(inGroupFile))
-      	return(NULL)
+        return(NULL)
       data <- as.matrix(datause)
       Group <- as.matrix(read.table(inGroupFile$datapath, header=T, sep="\t", row.names=1, check.names=F))
       Group <- data.frame(Group)
@@ -662,7 +917,7 @@ CHIPData <- reactive({
       data <- as.matrix(datause)
       data <- data[apply(data, MARGIN = 1, FUN = function(x) sd(x) != 0),]
       if(input$Cluster == "Rows"){
-      	pheatmap(data, scale=input$Scaling, cluster_rows=TRUE, cluster_cols=FALSE, main="Heatmap", border_color = "NA")
+        pheatmap(data, scale=input$Scaling, cluster_rows=TRUE, cluster_cols=FALSE, main="Heatmap", border_color = "NA")
       }
       else if(input$Cluster == "Columns"){
        pheatmap(data, scale=input$Scaling, cluster_rows=FALSE, cluster_cols=TRUE, main="Heatmap", border_color = "NA")
@@ -697,9 +952,9 @@ CHIPData <- reactive({
  })
 
  FPEnrichmentPlot <- reactive({
- 	inFile <- input$GeneList_FP
+  inFile <- input$GeneList_FP
     if (is.null(inFile))
-    	return(NULL)
+      return(NULL)
     enrichemnt <- FPEnrichmentData()
     emapplot(enrichemnt)
  })
@@ -707,99 +962,131 @@ CHIPData <- reactive({
  CHIPSeqPlot <- reactive({
     inFile <- input$PeakFile
     if (is.null(inFile))
-    	return(NULL)
+      return(NULL)
     peak <- readPeakFile(inFile$datapath)
     if(input$SpeciesChIP == "human (hg19)"){
-    	txdb = TxDb.Hsapiens.UCSC.hg19.knownGene
-      	if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
-        	covplot(peak, weightCol="V5")
-      	}
-      	else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
-        	plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
-      	}
-      	else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
-        	if(input$PlotAnnotation == "Peak genomic annotation"){
-          		plotAnnoBar(CHIPData())
-        	}
-        	else if(input$PlotAnnotation == "Functional enrichemnt"){
-          		emapplot(CHIPData())
-        	}
-      	}
+      txdb = TxDb.Hsapiens.UCSC.hg19.knownGene
+        if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
+          covplot(peak, weightCol="V5")
+        }
+        else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
+          plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
+        }
+        else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
+          if(input$PlotAnnotation == "Peak genomic annotation"){
+              plotAnnoBar(CHIPData())
+          }
+          else if(input$PlotAnnotation == "Functional enrichemnt"){
+              emapplot(CHIPData())
+          }
+        }
     }
     else if(input$SpeciesChIP == "human (hg38)"){
-    	txdb = TxDb.Hsapiens.UCSC.hg38.knownGene
-      	if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
-        	covplot(peak, weightCol="V5")
-      	}
-      	else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
-        	plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
-      	}
-      	else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
-        	if(input$PlotAnnotation == "Peak genomic annotation"){
-          		plotAnnoBar(CHIPData())
-        	}
-        	else if(input$PlotAnnotation == "Functional enrichemnt"){
-          		emapplot(CHIPData())
-        	}
-     	}
+      txdb = TxDb.Hsapiens.UCSC.hg38.knownGene
+        if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
+          covplot(peak, weightCol="V5")
+        }
+        else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
+          plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
+        }
+        else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
+          if(input$PlotAnnotation == "Peak genomic annotation"){
+              plotAnnoBar(CHIPData())
+          }
+          else if(input$PlotAnnotation == "Functional enrichemnt"){
+              emapplot(CHIPData())
+          }
+      }
     }
     else if(input$SpeciesChIP == "mouse (mm10)"){
-    	txdb = TxDb.Mmusculus.UCSC.mm10.knownGene
-      	if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
-        	covplot(peak, weightCol="V5")
-      	}
-      	else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
-        	plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
-      	}
-      	else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
-        	if(input$PlotAnnotation == "Peak genomic annotation"){
-          		plotAnnoBar(CHIPData())
-        	}
-        	else if(input$PlotAnnotation == "Functional enrichemnt"){
-          		emapplot(CHIPData())
-        	}
-      	}
+      txdb = TxDb.Mmusculus.UCSC.mm10.knownGene
+        if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
+          covplot(peak, weightCol="V5")
+        }
+        else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
+          plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
+        }
+        else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
+          if(input$PlotAnnotation == "Peak genomic annotation"){
+              plotAnnoBar(CHIPData())
+          }
+          else if(input$PlotAnnotation == "Functional enrichemnt"){
+              emapplot(CHIPData())
+          }
+        }
     }
     else if(input$SpeciesChIP == "mouse (mm9)"){
-    	txdb = TxDb.Mmusculus.UCSC.mm9.knownGene
-      	if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
-        	covplot(peak, weightCol="V5")
-      	}
-      	else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
-        	plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
-      	}
-      	else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
-        	if(input$PlotAnnotation == "Peak genomic annotation"){
-          		plotAnnoBar(CHIPData())
-        	}
-        	else if(input$PlotAnnotation == "Functional enrichemnt"){
-          		emapplot(CHIPData())
-        	}
-      	}
+      txdb = TxDb.Mmusculus.UCSC.mm9.knownGene
+        if(input$PlotChIP == "Coverage Plot (Visualize coverage of peaks across chromosomes)"){
+          covplot(peak, weightCol="V5")
+        }
+        else if(input$PlotChIP == "Average Profile of peaks binding to TSS regions"){
+          plotAvgProf2(peak, TxDb=txdb, upstream=3000, downstream=3000, xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
+        }
+        else if(input$PlotChIP == "Peak Annotation (finding closest genes, postion of Peaks wrt TSS etc.)"){
+          if(input$PlotAnnotation == "Peak genomic annotation"){
+              plotAnnoBar(CHIPData())
+          }
+          else if(input$PlotAnnotation == "Functional enrichemnt"){
+              emapplot(CHIPData())
+          }
+        }
     }
+ })
+
+ SingleCellPlot <- reactive({
+  seurat.object <- SingleCell()
+  if(input$scVisualization == "Gene Expression Plot"){
+    FeaturePlot(seurat.object, features = input$scGene, pt.size = 2)
+  }
+  else if(input$scVisualization == "Dimension Reduction Plot"){
+    DimPlot(seurat.object, label = TRUE, pt.size = 2)
+  }
+  else if(input$scVisualization == "Top10 Markers Heatmap"){
+    markers <- data.frame(SingleCellMarkers())
+    top10 <- markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+    DoHeatmap(seurat.object, features = top10$gene)
+  }
+  else if(input$scVisualization == "Violin Plot"){
+    VlnPlot(seurat.object, features = input$scGene) + RotatedAxis()
+  }
+  else if(input$scVisualization == "DotPlot"){
+    DotPlot(seurat.object, features = input$scGene) + RotatedAxis()
+  }
  })
 
  output$result <- DT::renderDataTable({
     if(input$Module == "Normalization") {
-    	DT::datatable(NormalizationData())
+      DT::datatable(NormalizationData())
     }
     else if(input$Module == "Visualization") {
-    	DT::datatable(VisualizationData())
+      DT::datatable(VisualizationData())
     }
     else if(input$Module == "Correlation Profiles") {
-    	DT::datatable(CorrelationData())
+      DT::datatable(CorrelationData())
     }
     else if(input$Module == "Differential Expression") {
-    	DT::datatable(DEData())
+      DT::datatable(DEData())
     }
     else if(input$Module == "Functional and Pathway Enrichment"){
-    	DT::datatable(data.frame(FPEnrichmentData()))
+      DT::datatable(data.frame(FPEnrichmentData()))
     }
     else if(input$Module == "ChIP-ATAC Seq Analysis"){
-      	DT::datatable(data.frame(CHIPData()))
+      DT::datatable(data.frame(CHIPData()))
     }
     else if(input$Module == "Basic Stats"){
-      	DT::datatable(BasicStatsData())
+      DT::datatable(BasicStatsData())
+    }
+    else if(input$Module == "Single Cell RNASeq Analysis"){
+      seurat.object <- SingleCell()
+      if(!is.null(SingleCell())){
+        markers <- SingleCellMarkers()
+        DT::datatable(markers)
+      }
+      else if(is.null(SingleCell())){
+        return(NULL)
+      }
+     
     }
  })
 
@@ -838,6 +1125,9 @@ CHIPData <- reactive({
     else if(input$Module == "ChIP-ATAC Seq Analysis"){
       CHIPSeqPlot()
     }
+    else if(input$Module == "Single Cell RNASeq Analysis"){
+      SingleCellPlot()
+    }
   }, width=1200, height=1000)
 
  output$downloadResult <- downloadHandler(
@@ -873,6 +1163,10 @@ CHIPData <- reactive({
           CorrelationData()
           write.table(CorrelationData(), file, sep="\t", quote=F)
         }
+        else if(input$Module == "Single Cell RNASeq Analysis"){
+          markers_clusters <- data.frame(SingleCellMarkers())
+          write.table(markers_clusters, file, sep="\t", quote=F)
+        }
       }
  )
 
@@ -880,91 +1174,106 @@ CHIPData <- reactive({
   output$DisplayText1 <- renderText({"Please Upload Input Data"})
 
   observe({
-  	if(input$Module == "Normalization"){
-  		output$DisplayText <- renderText({"Please Upload Input Data"})
-  		inFile <- input$File
-  		if((!is.null(inFile))&&(is.null(NormalizationData()))){
-  			output$DisplayText <- renderText({"CSBB is processing your data"})
-  			output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
-  		}
-  		else if((!is.null(inFile))&&(!is.null(NormalizationData()))){
-  			output$DisplayText <- renderText({"Processing Complete"})
-  			output$DisplayText1 <- renderText({"Plot Generated"})
-  		}
-  	}
-  	else if(input$Module == "Visualization"){
-  		output$DisplayText <- renderText({"Please Upload Input Data"})
-  		inFile <- input$File
-  		if((!is.null(inFile))&&(is.null(VisualizationData()))){
-  			output$DisplayText <- renderText({"CSBB is processing your data"})
-  			output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
-  		}
-  		else if((!is.null(inFile))&&(!is.null(VisualizationData()))){
-  			output$DisplayText <- renderText({"Processing Complete"})
-  			output$DisplayText1 <- renderText({"Plot Generated"})
-  		}
-  	}
-  	else if(input$Module == "Basic Stats"){
-  		output$DisplayText <- renderText({"Please Upload Input Data"})
-  		inFile <- input$File
-  		if((!is.null(inFile))&&(is.null(BasicStatsData()))){
-  			output$DisplayText <- renderText({"CSBB is processing your data"})
-  			output$DisplayText1 <- renderText({"No Visualization avaibale"})
-  		}
-  		else if((!is.null(inFile))&&(!is.null(BasicStatsData()))){
-  			output$DisplayText <- renderText({"Processing Complete"})
-  			output$DisplayText1 <- renderText({"No Visualization avaibale"})
-  		}
-  	}
-  	else if(input$Module == "Differential Expression"){
-  		output$DisplayText <- renderText({"Please Upload Input Data"})
-  		inFile <- input$Counts
-  		if((!is.null(inFile))&&(is.null(DEData()))){
-  			output$DisplayText <- renderText({"CSBB is processing your data"})
-  			output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
-  		}
-  		else if((!is.null(inFile))&&(!is.null(DEData()))){
-  			output$DisplayText <- renderText({"Processing Complete"})
-  			output$DisplayText1 <- renderText({"Plot Generated"})
-  		}
-  	}
-  	else if(input$Module == "Correlation Profiles"){
-  		output$DisplayText <- renderText({"Please Upload Input Data"})
-  		inFile <- input$File
-  		if((!is.null(inFile))&&(is.null(CorrelationData()))){
-  			output$DisplayText <- renderText({"CSBB is processing your data"})
-  			output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
-  		}
-  		else if((!is.null(inFile))&&(!is.null(CorrelationData()))){
-  			output$DisplayText <- renderText({"Processing Complete"})
-  			output$DisplayText1 <- renderText({"Plot Generated"})
-  		}
-  	}
-  	else if(input$Module == "Functional and Pathway Enrichment"){
-  		output$DisplayText <- renderText({"Please Upload Input Data"})
-  		inFile <- input$GeneList_FP
-  		if((!is.null(inFile))&&(is.null(FPEnrichmentData()))){
-  			output$DisplayText <- renderText({"CSBB is processing your data"})
-  			output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
-  		}
-  		else if((!is.null(inFile))&&(!is.null(FPEnrichmentData()))){
-  			output$DisplayText <- renderText({"Processing Complete"})
-  			output$DisplayText1 <- renderText({"Plot Generated"})
-  		}
-  	}
-  	else if(input$Module == "ChIP-ATAC Seq Analysis"){
-  		output$DisplayText <- renderText({"Please Upload Input Data"})
-  		inFile <- input$PeakFile
-  		if((!is.null(inFile))&&(is.null(CHIPData()))){
-  			output$DisplayText <- renderText({"CSBB is processing your data"})
-  			output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
-  		}
-  		else if((!is.null(inFile))&&(!is.null(CHIPData()))){
-  			output$DisplayText <- renderText({"Processing Complete"})
-  			output$DisplayText1 <- renderText({"Plot Generated"})
+    if(input$Module == "Normalization"){
+      output$DisplayText <- renderText({"Please Upload Input Data"})
+      inFile <- input$File
+      if((!is.null(inFile))&&(is.null(NormalizationData()))){
+        output$DisplayText <- renderText({"CSBB is processing your data"})
+        output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
+      }
+      else if((!is.null(inFile))&&(!is.null(NormalizationData()))){
+        output$DisplayText <- renderText({"Processing Complete"})
+        output$DisplayText1 <- renderText({"Plot Generated"})
+      }
+    }
+    else if(input$Module == "Visualization"){
+      output$DisplayText <- renderText({"Please Upload Input Data"})
+      inFile <- input$File
+      if((!is.null(inFile))&&(is.null(VisualizationData()))){
+        output$DisplayText <- renderText({"CSBB is processing your data"})
+        output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
+      }
+      else if((!is.null(inFile))&&(!is.null(VisualizationData()))){
+        output$DisplayText <- renderText({"Processing Complete"})
+        output$DisplayText1 <- renderText({"Plot Generated"})
+      }
+    }
+    else if(input$Module == "Basic Stats"){
+      output$DisplayText <- renderText({"Please Upload Input Data"})
+      inFile <- input$File
+      if((!is.null(inFile))&&(is.null(BasicStatsData()))){
+        output$DisplayText <- renderText({"CSBB is processing your data"})
+        output$DisplayText1 <- renderText({"No Visualization avaibale"})
+      }
+      else if((!is.null(inFile))&&(!is.null(BasicStatsData()))){
+        output$DisplayText <- renderText({"Processing Complete"})
+        output$DisplayText1 <- renderText({"No Visualization avaibale"})
+      }
+    }
+    else if(input$Module == "Differential Expression"){
+      output$DisplayText <- renderText({"Please Upload Input Data"})
+      inFile <- input$Counts
+      if((!is.null(inFile))&&(is.null(DEData()))){
+        output$DisplayText <- renderText({"CSBB is processing your data"})
+        output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
+      }
+      else if((!is.null(inFile))&&(!is.null(DEData()))){
+        output$DisplayText <- renderText({"Processing Complete"})
+        output$DisplayText1 <- renderText({"Plot Generated"})
+      }
+    }
+    else if(input$Module == "Correlation Profiles"){
+      output$DisplayText <- renderText({"Please Upload Input Data"})
+      inFile <- input$File
+      if((!is.null(inFile))&&(is.null(CorrelationData()))){
+        output$DisplayText <- renderText({"CSBB is processing your data"})
+        output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
+      }
+      else if((!is.null(inFile))&&(!is.null(CorrelationData()))){
+        output$DisplayText <- renderText({"Processing Complete"})
+        output$DisplayText1 <- renderText({"Plot Generated"})
+      }
+    }
+    else if(input$Module == "Functional and Pathway Enrichment"){
+      output$DisplayText <- renderText({"Please Upload Input Data"})
+      inFile <- input$GeneList_FP
+      if((!is.null(inFile))&&(is.null(FPEnrichmentData()))){
+        output$DisplayText <- renderText({"CSBB is processing your data"})
+        output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
+      }
+      else if((!is.null(inFile))&&(!is.null(FPEnrichmentData()))){
+        output$DisplayText <- renderText({"Processing Complete"})
+        output$DisplayText1 <- renderText({"Plot Generated"})
+      }
+    }
+    else if(input$Module == "ChIP-ATAC Seq Analysis"){
+      output$DisplayText <- renderText({"Please Upload Input Data"})
+      inFile <- input$PeakFile
+      if((!is.null(inFile))&&(is.null(CHIPData()))){
+        output$DisplayText <- renderText({"CSBB is processing your data"})
+        output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
+      }
+      else if((!is.null(inFile))&&(!is.null(CHIPData()))){
+        output$DisplayText <- renderText({"Processing Complete"})
+        output$DisplayText1 <- renderText({"Plot Generated"})
 
-  		}
-  	}
+      }
+    }
+    else if(input$Module == "Single Cell RNASeq Analysis"){
+      output$DisplayText <- renderText({"Please Upload Input Data"})
+      inFile <- input$scCounts
+      inFile1 <- input$scH5
+      inFile2 <- input$scRobj
+      if((!is.null(inFile))||(!is.null(inFile1))||(!is.null(inFile2))&&(is.null(SingleCell()))){
+        output$DisplayText <- renderText({"CSBB is processing your data"})
+        output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
+      }
+      else if((!is.null(inFile))||(!is.null(inFile1))||(!is.null(inFile2))&&(!is.null(SingleCell()))){
+        output$DisplayText <- renderText({"Processing Complete"})
+        output$DisplayText1 <- renderText({"Plot Generated"})
+
+      }
+    }
   })
 
   output$downloadPlot <- downloadHandler(
@@ -1019,8 +1328,22 @@ CHIPData <- reactive({
           CHIPSeqPlot()
           ggsave(file, width = 15, height = 15)
        }
+       else if(input$Module == "Single Cell RNASeq Analysis"){
+          SingleCellPlot()
+          ggsave(file, width = 15, height = 15)
+       }
     },
     contentType = 'image/png'
+  )
+
+  output$scRNAObjectDownload <- downloadHandler(
+    filename = function() {
+        paste0(input$Module, "_Analysis", "-", Sys.Date(), ".Robj")
+      },
+      content = function(file) {
+        seurat.object <- SingleCell()
+        save(seurat.object, file = file)
+      }
   )
 }
 shinyApp(ui = ui, server = server)
