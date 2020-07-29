@@ -25,6 +25,11 @@ library(TxDb.Mmusculus.UCSC.mm10.knownGene)
 library(TxDb.Hsapiens.UCSC.hg38.knownGene)
 library(TxDb.Mmusculus.UCSC.mm9.knownGene)
 library(clusterProfiler)
+library(Seurat)
+library(cowplot)
+library(scater)
+library(hdf5r)
+
 ```
 
 # Please Access CSBB RShiny at: 
