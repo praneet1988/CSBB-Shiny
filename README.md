@@ -42,5 +42,4 @@ https://praneet1988.shinyapps.io/CSBB_Shiny/
 https://youtu.be/c0P7TMu_IyY
 
 # Single Cell Transcriptomics Analysis Tutorial
-[![Watch the video](https://www.youtube.com/watch?v=s8Q4o1e-f1E)]
-
+https://www.youtube.com/watch?v=s8Q4o1e-f1E
