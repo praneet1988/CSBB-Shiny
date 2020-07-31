@@ -11,6 +11,7 @@ library(RUVSeq)
 library(scales)
 library(dtwclust)
 library(dplyr)
+library(DESeq2)
 library(ggcorrplot)
 library(tibble)
 library(ReactomePA)
@@ -27,6 +28,7 @@ library(clusterProfiler)
 library(cowplot)
 library(scater)
 library(hdf5r)
+library(MAST)
 
 options(shiny.maxRequestSize=10000*1024^2)
 ui <- fluidPage(
@@ -232,6 +234,52 @@ ui <- fluidPage(
 
       conditionalPanel(
         condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        numericInput("scMinCells", 
+                    label = "Input Minimum number of cells to express all genes",
+                    value = 3,
+                    min = 0,
+                    max = 200000),
+        verbatimTextOutput("3")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        numericInput("scMinFeatures", 
+                    label = "Input Minimum number of features all cells should express",
+                    value = 100,
+                    min = 0,
+                    max = 30000),
+        verbatimTextOutput("100")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        selectInput("scNormalization", 
+                    label = "Select Normalization Method",
+                    choices = c("LogNormalize", "SCTransform"),
+                    selected = "LogNormalize")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        selectInput("scReduction", 
+                    label = "Select Dimension Reduction",
+                    choices = c("umap", "tsne"),
+                    selected = "umap")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        selectInput("scDETest", 
+                    label = "Select Differential Expression Test (Please see: some of these tests increase run time significantly)",
+                    choices = c("wilcox", "bimod", "roc", "t", "negbinom", "poisson", "LR", "MAST", "DESeq2"),
+                    selected = "wilcox")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
+        selectInput("scCellCycle", 
+                    label = "Regress Cell Cycle Effect",
+                    choices = c("Yes", "No"),
+                    selected = "Yes")),
+
+      conditionalPanel(
+        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
         numericInput("VarFeatures", 
                     label = "Input Number of Variable Features to use",
                     value = 2000,
@@ -258,17 +306,10 @@ ui <- fluidPage(
         verbatimTextOutput("0.5")),
 
       conditionalPanel(
-        condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5'",
-        selectInput("scReduction", 
-                    label = "Select Dimension Reduction",
-                    choices = c("umap", "tsne"),
-                    selected = "umap")),
-
-      conditionalPanel(
         condition = "input.Module == 'Single Cell RNASeq Analysis' && input.scInput == 'Raw Counts Matrix' || input.scInput == 'H5' || input.scInput == 'R Object'",
         selectInput("scVisualization", 
                     label = "Select single cell Visualization",
-                    choices = c("Gene Expression Plot", "Dimension Reduction Plot", "Top10 Markers Heatmap", "Violin Plot", "DotPlot"),
+                    choices = c("Gene Expression Plot", "Dimension Reduction Plot", "Top10 Markers Heatmap", "Violin Plot", "DotPlot", "QC Metrics Plot", "Cell Cycle Phase"),
                     selected = "Dimension Reduction Plot")),
 
       conditionalPanel(
@@ -311,6 +352,7 @@ ui <- fluidPage(
                 p(strong("Single Cell RNASeq Analysis module"), "is designed to perform single cell RNA-Seq analysis. CSBB-Shiny uses Seurat", a("Cite", href = "https://www.nature.com/articles/nbt.4096", target = "_blank"), "which has been one of most cited and widely used analysis toolkit for analyzing single cell RNA-Seq data. The purpose of providing a module for analyzing scRNA data is to enable users with feasible and powerful front-end to seurat. Please check Seurat Vignettes to undertand the steps behind analyzing the analysis framework. In CSBB-Shiny a default filtering on number of RNA features and percentage mitochondrial expression is used. The filter is set to 95th quantile for filtering cells. Please check out the video tutorial to undertand the specifics and parameters. Users can input raw counts matrix, H5 output from cellranger or a processed Seurat v3.0 object. Please cite Seurat when using this module for your research or grants. Please see that CSBB allows users to download R Objects after processing and the object name is set seurat.object.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p("Please access sample files for each module using", a("Sample Files", href = "https://github.com/praneet1988/CSBB-Shiny", target = "_blank"), style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"))),
               tabPanel("What's New in CSBB Shiny", fluidRow(
+                p(strong("Version 1.4 Log:"), "Added new features to Single Cell Analysis Module like option to regress cell-cycle effect, choose between LogNormalize or SCTransform, choose from multiple differential test for marker prediction, generate QC plot and lastly generate dimension plot with cell cycle phase. Users can input raw counts, H5 output from cellranger or a processed R object. CSBB-Shiny uses Seurat (a powerful scRNA-Seq analysis toolkit) to help users analyze scRNA-Seq datasets. CSBB Shiny will be updated periodically. Stay Tuned.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Version 1.3 Log:"), "Presenting Single cell RNA-Seq analysis module for analyzing scRNA-Seq datasets. Users can input raw counts, H5 output from cellranger or a processed R object. CSBB-Shiny uses Seurat (a powerful scRNA-Seq analysis toolkit) to help users analyze scRNA-Seq datasets. CSBB Shiny will be updated periodically. Stay Tuned.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Version 1.2 Log:"), "Dusted off some bugs in ChIP-ATAC Seq Analysis Module, thereby enhancing user experience. Bugs removed include: plots not being saved or not being refereshed. Removed the option to create tag density heatmap. Replaced pie chart with bar plot for visualizing peak region enrichment. CSBB Shiny will be updated periodically. Stay Tuned.", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
                 p(strong("Version 1.1 Log:"), "Brushed off some known bugs which entered the system and added new Module ChIP-ATAC Seq Analysis for users. CSBB Shiny will be updated periodically. Some known bugs kicked out include result files and plots file naming, threshold changes, text changes", style="text-align:justify;color:black;background-color:white;padding:20px;border-radius:10px;font-size:15px"),
@@ -690,18 +732,19 @@ CHIPData <- reactive({
 
 SingleCell <- reactive({
   if(input$Module == "Single Cell RNASeq Analysis"){
-    if(input$scInput == "Raw Counts Matrix"){
-      inFile <- input$scCounts
-      if(is.null(inFile))
-        return(NULL)
+    if((input$scInput == "Raw Counts Matrix")||(input$scInput == "H5")){
       data <- c()
       data <- scData()
-      seurat.object <- CreateSeuratObject(counts = data, project = "scAnalysis", min.cells = 0, min.features = 0)
+      if(is.null(data))
+        return(NULL)
+      seurat.object <- CreateSeuratObject(counts = data, project = "scAnalysis", min.cells = input$scMinCells, min.features = input$scMinFeatures)
       if(input$Species_singlecell == "human"){
         seurat.object[["percent.mt"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-")
+        cc.genes <- readLines(con = "data/CellCycle_Human.txt")
       }
       else if(input$Species_singlecell == "mouse"){
         seurat.object[["percent.mt"]] <- PercentageFeatureSet(seurat.object, pattern = "^mt-")
+        cc.genes <- readLines(con = "data/CellCycle_Mouse.txt")
       }
       nFeature_RNA_cutoff <- quantile(seurat.object@meta.data$nFeature_RNA, .95)
       nFeature_RNA_cutoff <- data.frame(nFeature_RNA_cutoff)
@@ -713,56 +756,53 @@ SingleCell <- reactive({
       else if(percentMT_cutoff$percentMT_cutoff > 0){
         seurat.object <- subset(seurat.object, subset = nFeature_RNA > 0 & nFeature_RNA < nFeature_RNA_cutoff$nFeature_RNA_cutoff & percent.mt < percentMT_cutoff$percentMT_cutoff)
       }
-      seurat.object <- NormalizeData(seurat.object)
-      seurat.object <- FindVariableFeatures(seurat.object, selection.method = "vst", nfeatures = input$VarFeatures)
-      seurat.object <- ScaleData(seurat.object)
-      seurat.object <- RunPCA(seurat.object)
-      seurat.object <- FindNeighbors(seurat.object, dims = 1:input$scDims)
-      seurat.object <- FindClusters(seurat.object, resolution = input$scRes)
-      if(input$scReduction == "umap"){
-        seurat.object <- RunUMAP(seurat.object, dims = 1:input$scDims)
+      if(input$scNormalization == 'LogNormalize'){
+        seurat.object <- NormalizeData(seurat.object)
+        seurat.object <- FindVariableFeatures(seurat.object, selection.method = "vst", nfeatures = input$VarFeatures)
+        if(input$scCellCycle == "Yes"){
+          s.genes <- cc.genes[1:43]
+          g2m.genes <- cc.genes[44:97]
+          seurat.object <- CellCycleScoring(object = seurat.object, s.features = s.genes, g2m.features = g2m.genes, set.ident = FALSE)
+          seurat.object@meta.data$CC.Difference <- seurat.object@meta.data$S.Score - seurat.object@meta.data$G2M.Score
+          seurat.object <- ScaleData(seurat.object, vars.to.regress = c("percent.mt", "CC.Difference"))
+        }
+        else if(input$scCellCycle == "No"){
+          seurat.object <- ScaleData(seurat.object, vars.to.regress = "percent.mt")
+        }
+        seurat.object <- RunPCA(seurat.object)
+        seurat.object <- FindNeighbors(seurat.object, dims = 1:input$scDims)
+        seurat.object <- FindClusters(seurat.object, resolution = input$scRes)
+        if(input$scReduction == "umap"){
+          seurat.object <- RunUMAP(seurat.object, dims = 1:input$scDims)
+        }
+        else if(input$scReduction == "tsne"){
+          seurat.object <- RunTSNE(seurat.object, dims = 1:input$scDims)
+        }
+        return(seurat.object)
       }
-      else if(input$scReduction == "tsne"){
-        seurat.object <- RunTSNE(seurat.object, dims = 1:input$scDims)
+      else if(input$scNormalization == 'SCTransform'){
+        if(input$scCellCycle == "Yes"){
+          s.genes <- cc.genes[1:43]
+          g2m.genes <- cc.genes[44:97]
+          seurat.object <- SCTransform(seurat.object, variable.features.n = input$VarFeatures)
+          seurat.object <- CellCycleScoring(object = seurat.object, s.features = s.genes, g2m.features = g2m.genes, set.ident = FALSE)
+          seurat.object@meta.data$CC.Difference <- seurat.object@meta.data$S.Score - seurat.object@meta.data$G2M.Score
+          seurat.object <- SCTransform(seurat.object, vars.to.regress = c("percent.mt", "CC.Difference"), variable.features.n = input$VarFeatures)
+        }
+        else if(input$scCellCycle == "No"){
+          seurat.object <- SCTransform(seurat.object, vars.to.regress = "percent.mt", variable.features.n = input$VarFeatures)
+        }
+        seurat.object <- RunPCA(seurat.object)
+        seurat.object <- FindNeighbors(seurat.object, dims = 1:input$scDims)
+        seurat.object <- FindClusters(seurat.object, resolution = input$scRes)
+        if(input$scReduction == "umap"){
+          seurat.object <- RunUMAP(seurat.object, dims = 1:input$scDims)
+        }
+        else if(input$scReduction == "tsne"){
+          seurat.object <- RunTSNE(seurat.object, dims = 1:input$scDims)
+        }
+        return(seurat.object)
       }
-      return(seurat.object)
-    }
-    else if(input$scInput == "H5"){
-      inFile <- input$scH5
-      if(is.null(inFile))
-        return(NULL)
-      data <- c()
-      data <- scData()
-      seurat.object <- CreateSeuratObject(counts = data, project = "scAnalysis", min.cells = 0, min.features = 0)
-      if(input$Species_singlecell == "human"){
-        seurat.object[["percent.mt"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-")
-      }
-      else if(input$Species_singlecell == "mouse"){
-        seurat.object[["percent.mt"]] <- PercentageFeatureSet(seurat.object, pattern = "^mt-")
-      }
-      nFeature_RNA_cutoff <- quantile(seurat.object@meta.data$nFeature_RNA, .95)
-      nFeature_RNA_cutoff <- data.frame(nFeature_RNA_cutoff)
-      percentMT_cutoff <- quantile(seurat.object@meta.data$percent.mt, .95)
-      percentMT_cutoff <- data.frame(percentMT_cutoff)
-      if(percentMT_cutoff$percentMT_cutoff == 0){
-        seurat.object <- subset(seurat.object, subset = nFeature_RNA > 0 & nFeature_RNA < nFeature_RNA_cutoff$nFeature_RNA_cutoff & percent.mt < 1)
-      }
-      else if(percentMT_cutoff$percentMT_cutoff > 0){
-        seurat.object <- subset(seurat.object, subset = nFeature_RNA > 0 & nFeature_RNA < nFeature_RNA_cutoff$nFeature_RNA_cutoff & percent.mt < percentMT_cutoff$percentMT_cutoff)
-      }
-      seurat.object <- NormalizeData(seurat.object)
-      seurat.object <- FindVariableFeatures(seurat.object, selection.method = "vst", nfeatures = input$VarFeatures)
-      seurat.object <- ScaleData(seurat.object)
-      seurat.object <- RunPCA(seurat.object)
-      seurat.object <- FindNeighbors(seurat.object, dims = 1:input$scDims)
-      seurat.object <- FindClusters(seurat.object, resolution = input$scRes)
-      if(input$scReduction == "umap"){
-        seurat.object <- RunUMAP(seurat.object, dims = 1:input$scDims)
-      }
-      else if(input$scReduction == "tsne"){
-        seurat.object <- RunTSNE(seurat.object, dims = 1:input$scDims)
-      }
-      return(seurat.object)
     }
     else if(input$scInput == "R Object"){
       inFile <- input$scRobj
@@ -777,7 +817,9 @@ SingleCell <- reactive({
 
  SingleCellMarkers <- reactive({
   seurat.object <- SingleCell()
-  markers_clusters <- FindAllMarkers(seurat.object, only.pos = TRUE)
+  if(is.null(seurat.object))
+    return(NULL)
+  markers_clusters <- FindAllMarkers(seurat.object, only.pos = TRUE, test.use = input$scDETest)
   return(markers_clusters)
  })
 
@@ -1043,8 +1085,7 @@ SingleCell <- reactive({
     DimPlot(seurat.object, label = TRUE, pt.size = 2)
   }
   else if(input$scVisualization == "Top10 Markers Heatmap"){
-    markers <- data.frame(SingleCellMarkers())
-    top10 <- markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+    top10 <- SingleCellMarkers() %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
     DoHeatmap(seurat.object, features = top10$gene)
   }
   else if(input$scVisualization == "Violin Plot"){
@@ -1052,6 +1093,13 @@ SingleCell <- reactive({
   }
   else if(input$scVisualization == "DotPlot"){
     DotPlot(seurat.object, features = input$scGene) + RotatedAxis()
+  }
+  else if(input$scVisualization == "Cell Cycle Phase"){
+    DimPlot(seurat.object, label = TRUE, pt.size = 2, group.by = "Phase")
+  }
+  else if(input$scVisualization == "QC Metrics Plot"){
+    Idents(seurat.object) <- seurat.object@meta.data$orig.ident
+    VlnPlot(seurat.object, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
   }
  })
 
@@ -1078,15 +1126,7 @@ SingleCell <- reactive({
       DT::datatable(BasicStatsData())
     }
     else if(input$Module == "Single Cell RNASeq Analysis"){
-      seurat.object <- SingleCell()
-      if(!is.null(SingleCell())){
-        markers <- SingleCellMarkers()
-        DT::datatable(markers)
-      }
-      else if(is.null(SingleCell())){
-        return(NULL)
-      }
-     
+      DT::datatable(SingleCellMarkers())
     }
  })
 
@@ -1164,8 +1204,7 @@ SingleCell <- reactive({
           write.table(CorrelationData(), file, sep="\t", quote=F)
         }
         else if(input$Module == "Single Cell RNASeq Analysis"){
-          markers_clusters <- data.frame(SingleCellMarkers())
-          write.table(markers_clusters, file, sep="\t", quote=F)
+          write.table(SingleCellMarkers(), file, sep="\t", quote=F)
         }
       }
  )
@@ -1264,14 +1303,13 @@ SingleCell <- reactive({
       inFile <- input$scCounts
       inFile1 <- input$scH5
       inFile2 <- input$scRobj
-      if((!is.null(inFile))||(!is.null(inFile1))||(!is.null(inFile2))&&(is.null(SingleCell()))){
+      if((!is.null(scData()))&&(is.null(SingleCell()))&&(is.null(SingleCellMarkers()))){
         output$DisplayText <- renderText({"CSBB is processing your data"})
         output$DisplayText1 <- renderText({"CSBB is generating selected visualization plot"})
       }
-      else if((!is.null(inFile))||(!is.null(inFile1))||(!is.null(inFile2))&&(!is.null(SingleCell()))){
+      else if((!is.null(scData()))&&(!is.null(SingleCell()))&&(!is.null(SingleCellMarkers()))){
         output$DisplayText <- renderText({"Processing Complete"})
         output$DisplayText1 <- renderText({"Plot Generated"})
-
       }
     }
   })
