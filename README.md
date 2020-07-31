@@ -29,6 +29,8 @@ library(Seurat)
 library(cowplot)
 library(scater)
 library(hdf5r)
+library(DESeq2)
+library(MAST)
 
 ```
 
