@@ -1,7 +1,10 @@
+####### Install R packages automatically #########
+source("install_R_packages.R")
+
+
+######## Load R packages ###############
 library(devtools)
 require(usethis)
-library(Seurat)
-options(repos = BiocManager::repositories())
 library(shiny)
 library(servr)
 library(ggplot2)
@@ -29,6 +32,9 @@ library(cowplot)
 library(scater)
 library(hdf5r)
 library(MAST)
+library(Seurat)
+#########################
+
 
 options(shiny.maxRequestSize=10000*1024^2)
 ui <- fluidPage(
