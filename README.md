@@ -1,6 +1,22 @@
 # CSBB-Shiny
 Computational Suite for Bioinformaticians and Biologists (CSBB), is a RShiny application developed with an intention to empower researchers from wet and dry lab to perform downstream Bioinformatics analysis. CSBB powered by RShiny is packed with 8 modules Visualization, Normalization, Basic Stats, Differential Expression, Correlation Profiles, Function/Pathway Enrichment, ChIP-ATAC Seq and Single Cell RNA-Seq analysis. These modules are designed in order to help researchers design a hypothesis or answer research questions with little or no expertise in Bioinformatics. CSBB is also available as a command line application and has Next generation sequencing data processing capabilities. New modules and functionalities will be added periodically
 
+# Run CSBB-Shiny from your R console or RStudio with one command
+Open your R console or RStudio and paste the commands provided below. CSBB-Shiny will automatically install all required dependencies (R packages).
+
+```
+library(shiny)
+runGitHub("CSBB-Shiny", "praneet1988", launch.browser = TRUE)
+
+```
+In case R package shiny is not installed please run the following command.
+
+```
+install.packages("shiny", repos="http://cran.us.r-project.org")
+library(shiny)
+
+```
+
 # Dependencies
 ```
 library(shiny)
