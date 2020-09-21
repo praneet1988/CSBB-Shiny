@@ -825,7 +825,7 @@ SingleCell <- reactive({
   seurat.object <- SingleCell()
   if(is.null(seurat.object))
     return(NULL)
-  markers_clusters <- FindAllMarkers(seurat.object, only.pos = TRUE, test.use = input$scDETest)
+  markers_clusters <- FindAllMarkers(seurat.object, test.use = input$scDETest)
   return(markers_clusters)
  })
 
