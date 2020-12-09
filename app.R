@@ -770,10 +770,10 @@ SingleCell <- reactive({
           g2m.genes <- cc.genes[44:97]
           seurat.object <- CellCycleScoring(object = seurat.object, s.features = s.genes, g2m.features = g2m.genes, set.ident = FALSE)
           seurat.object@meta.data$CC.Difference <- seurat.object@meta.data$S.Score - seurat.object@meta.data$G2M.Score
-          seurat.object <- ScaleData(seurat.object, vars.to.regress = c("percent.mt", "CC.Difference"))
+          seurat.object <- ScaleData(seurat.object, vars.to.regress = c("percent.mt", "CC.Difference"), features = rownames(seurat.object))
         }
         else if(input$scCellCycle == "No"){
-          seurat.object <- ScaleData(seurat.object, vars.to.regress = "percent.mt")
+          seurat.object <- ScaleData(seurat.object, vars.to.regress = "percent.mt", features = rownames(seurat.object))
         }
         seurat.object <- RunPCA(seurat.object)
         seurat.object <- FindNeighbors(seurat.object, dims = 1:input$scDims)
