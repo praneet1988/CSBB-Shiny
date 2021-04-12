@@ -601,6 +601,7 @@ CorrelationData <- reactive({
         "complete.obs"
         cormat <- cor(datause, method=input$CorrelationMethod, use = "complete.obs")
         ###cormat <- cor(datause, method=input$CorrelationMethod, use = "na.or.complete")
+        cormat <- na.omit(cormat)
         return(cormat)
       }
     }
