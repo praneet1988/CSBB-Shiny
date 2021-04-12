@@ -598,7 +598,9 @@ CorrelationData <- reactive({
         GenesUpload <- unique(GenesUpload$V1)
         datause <- subset(data, rownames(data) %in% GenesUpload)
         datause <- t(datause)
-        cormat <- cor(datause, method=input$CorrelationMethod, use = "na.or.complete")
+        "complete.obs"
+        cormat <- cor(datause, method=input$CorrelationMethod, use = "complete.obs")
+        ###cormat <- cor(datause, method=input$CorrelationMethod, use = "na.or.complete")
         return(cormat)
       }
     }
