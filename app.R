@@ -598,10 +598,8 @@ CorrelationData <- reactive({
         GenesUpload <- unique(GenesUpload$V1)
         datause <- subset(data, rownames(data) %in% GenesUpload)
         datause <- t(datause)
-        "complete.obs"
-        cormat <- cor(datause, method=input$CorrelationMethod, use = "complete.obs")
-        ###cormat <- cor(datause, method=input$CorrelationMethod, use = "na.or.complete")
-        cormat <- na.omit(cormat)
+        #######cormat <- cor(datause, method=input$CorrelationMethod, use = "complete.obs")
+        cormat <- cor(datause, method=input$CorrelationMethod, use = "na.or.complete")
         return(cormat)
       }
     }
@@ -924,7 +922,6 @@ SingleCell <- reactive({
           return(NULL)
         titleuse <- paste0("Displaying Correlation Plot of ", input$Correlation)
         data <-   CorrelationData()
-        data <- na.omit(data)
         ggcorrplot(data, hc.order = TRUE, outline.color = "white", ggtheme = ggplot2::theme_gray, colors = c("#6D9EC1", "white", "#E46726"), legend.title = "Correlation") + labs(title = titleuse)
      }
  })
