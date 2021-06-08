@@ -1092,7 +1092,7 @@ SingleCell <- reactive({
     DimPlot(seurat.object, label = TRUE, pt.size = 2)
   }
   else if(input$scVisualization == "Top10 Markers Heatmap"){
-    top10 <- SingleCellMarkers() %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+    top10 <- SingleCellMarkers() %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC)   ###### based on v4 Seurat
     DoHeatmap(seurat.object, features = top10$gene)
   }
   else if(input$scVisualization == "Violin Plot"){
