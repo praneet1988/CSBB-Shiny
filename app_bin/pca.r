@@ -1,6 +1,7 @@
 data <- as.matrix(DataUse())
 data <- data[apply(data[,-1], 1, function(x) !all(x==0)),]
 data.t <- t(data)
+data.t <- data.t[ , which(apply(data.t, 2, var) != 0)]
 pca <- prcomp(data.t, center=T, scale. = T)
 pc1 <- round(pca$sdev[1]^2/sum(pca$sdev^2)*100,2)
 pc2 <- round(pca$sdev[2]^2/sum(pca$sdev^2)*100,2)
