@@ -1,5 +1,5 @@
-options(repos = BiocManager::repositories())
 if (!require("BiocManager")) install.packages("BiocManager", repos="http://cran.us.r-project.org")
+options(repos = BiocManager::repositories())
 if (!require("devtools")) install.packages("devtools", repos="http://cran.us.r-project.org")
 if (!require("shiny")) install.packages("shiny", repos="http://cran.us.r-project.org")
 if (!require("servr")) install.packages("servr", repos="http://cran.us.r-project.org")
