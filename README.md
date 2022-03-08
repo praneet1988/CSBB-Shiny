@@ -52,9 +52,6 @@ library(MAST)
 
 ```
 
-# Please Access CSBB RShiny at: 
-https://praneet1988.shinyapps.io/CSBB_Shiny/
-
 # End to End Pipeline Workflow with CSBB
 ![Graph](CSBB.png)
 
