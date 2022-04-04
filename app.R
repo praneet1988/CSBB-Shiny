@@ -1158,10 +1158,10 @@ observe({
   }
   else if(input$scVisualization == "Dimension Reduction Plot"){
     if((input$scInput == 'Raw Counts Matrix') || (input$scInput == 'H5')) {
-      DimPlot(seurat.object, label = TRUE, pt.size = 2, repel = T, label.size = 5)
+      DimPlot(seurat.object, label = TRUE, pt.size = 2, repel = T, label.size = 5) + guides(colour = guide_legend(ncol = 1, override.aes = list(size = 5)))
     }
     else if(input$scInput == 'Seurat Object') {
-      DimPlot(seurat.object, label = TRUE, pt.size = 2, repel = T, label.size = 5, group.by = input$ColorCells)
+      DimPlot(seurat.object, label = TRUE, pt.size = 2, repel = T, label.size = 5, group.by = input$ColorCells) + guides(colour = guide_legend(ncol = 1, override.aes = list(size = 5)))
     } 
   }
   else if(input$scVisualization == "Top10 Markers Heatmap") {
