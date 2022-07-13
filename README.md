@@ -19,39 +19,6 @@ library(shiny)
 
 ```
 
-# Dependencies
-```
-library(shiny)
-library(servr)
-library(ggplot2)
-library(pheatmap)
-library(M3C)
-library(RUVSeq)
-library(scales)
-library(dtwclust)
-library(dplyr)
-library(ggcorrplot)
-library(tibble)
-library(ReactomePA)
-library(org.Hs.eg.db)
-library(org.Mm.eg.db)
-library(AnnotationDbi)
-library(EnhancedVolcano)
-library(ChIPseeker)
-library(TxDb.Hsapiens.UCSC.hg19.knownGene)
-library(TxDb.Mmusculus.UCSC.mm10.knownGene)
-library(TxDb.Hsapiens.UCSC.hg38.knownGene)
-library(TxDb.Mmusculus.UCSC.mm9.knownGene)
-library(clusterProfiler)
-library(Seurat)
-library(cowplot)
-library(scater)
-library(hdf5r)
-library(DESeq2)
-library(MAST)
-
-```
-
 # End to End Pipeline Workflow with CSBB
 ![Graph](CSBB.png)
 
