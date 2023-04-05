@@ -35,7 +35,15 @@ library(Seurat)
 library(shinycssloaders)
 library(shinyWidgets)
 library(hdf5r)
+library(enrichR)
 #########################
+
+#### Setup enrichR
+setEnrichrSite("Enrichr")
+websiteLive <- TRUE
+dbs <- listEnrichrDbs()
+dbs = "KEGG_2016"
+################
 
 
 options(shiny.maxRequestSize=10000*1024^2)
@@ -649,8 +657,8 @@ FPEnrichmentData <- reactive({
           GenesUpload <- as.matrix(read.table(inFile$datapath, sep="\n", header=F))
           GenesUpload <- data.frame(GenesUpload)
           GenesUpload <- unique(GenesUpload$V1)
-          genes_ids <- mapIds(org.Hs.eg.db, as.character(GenesUpload), 'ENTREZID', 'SYMBOL')
-          enrichemnt <- enrichPathway(gene = genes_ids, pvalueCutoff = 0.05, readable=T, organism = "human")
+          #genes_ids <- mapIds(org.Hs.eg.db, as.character(GenesUpload), 'ENTREZID', 'SYMBOL')
+          enrichemnt <- enrichr(GenesUpload, dbs)
           return(enrichemnt)
         }
         else if(input$Species == "mouse"){
@@ -660,8 +668,8 @@ FPEnrichmentData <- reactive({
           GenesUpload <- as.matrix(read.table(inFile$datapath, sep="\n", header=F))
           GenesUpload <- data.frame(GenesUpload)
           GenesUpload <- unique(GenesUpload$V1)
-          genes_ids <- mapIds(org.Mm.eg.db, as.character(GenesUpload), 'ENTREZID', 'SYMBOL')
-          enrichemnt <- enrichPathway(gene = genes_ids, pvalueCutoff = 0.05, readable=T, organism = "mouse")
+          #genes_ids <- mapIds(org.Mm.eg.db, as.character(GenesUpload), 'ENTREZID', 'SYMBOL')
+          enrichemnt <- enrichr(GenesUpload, dbs)
           return(enrichemnt)
         }
       }
@@ -1048,17 +1056,13 @@ observe({
     else if(input$PlotType == "Functional and Pathway Enrichment"){
       if(input$SpeciesUse == "human"){
        data <- as.matrix(datause)
-       genes_de <- rownames(data)
-       genes_de_id <- mapIds(org.Hs.eg.db, genes_de, 'ENTREZID', 'SYMBOL')
-       enrichemnt <- enrichPathway(gene = genes_de_id, pvalueCutoff = 0.05, readable=T, organism = "human", maxGSSize = 5000)
-       emapplot(enrichemnt)
+       enrichemnt <- enrichr(rownames(data), dbs)
+       plotEnrich(enrichemnt$KEGG_2016, showTerms = 30, numChar = 100, y = "Count", orderBy = "P.value")
       }
       else if(input$SpeciesUse == "mouse"){
        data <- as.matrix(datause)
-       genes_de <- rownames(data)
-       genes_de_id <- mapIds(org.Mm.eg.db, genes_de, 'ENTREZID', 'SYMBOL')
-       enrichemnt <- enrichPathway(gene = genes_de_id, pvalueCutoff = 0.05, readable=T, organism = "mouse", maxGSSize = 5000)
-       emapplot(enrichemnt)
+       enrichemnt <- enrichr(rownames(data), dbs)
+       plotEnrich(enrichemnt$KEGG_2016, showTerms = 30, numChar = 100, y = "Count", orderBy = "P.value")
       }
     }
     else if(input$PlotType == "Volcano Plots"){
@@ -1072,7 +1076,7 @@ observe({
     if (is.null(inFile))
       return(NULL)
     enrichemnt <- FPEnrichmentData()
-    emapplot(enrichemnt)
+    plotEnrich(enrichemnt$KEGG_2016, showTerms = 30, numChar = 100, y = "Count", orderBy = "P.value")
  })
 
  CHIPSeqPlot <- reactive({
