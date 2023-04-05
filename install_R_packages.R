@@ -33,3 +33,4 @@ if (!require("shinycssloaders")) install.packages("shinycssloaders", repos="http
 if (!require("shinyWidgets")) install.packages("shinyWidgets", repos="http://cran.us.r-project.org")
 if (!require("hdf5r")) install.packages("hdf5r", repos="http://cran.us.r-project.org")
 if (!require("DT")) install.packages("DT", repos="http://cran.us.r-project.org")
+if(!require("enrichR")) devtools::install_github("wjawaid/enrichR")
